@@ -15,7 +15,7 @@ DEFAULT_MESH_CONFIG = {
     "listen_port": 8000,
     "peers": [],
     "seeds": [],
-    "gossip_interval_sec": 30,
+    "gossip_interval_sec": 0,
     "require_handshake": False,
     "gossip_push": False,
     "capabilities": [

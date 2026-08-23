@@ -17,7 +17,7 @@
     ],
     "invariants": [
       "Existence is not activation",
-      "Read-only v1 \u2014 phase gate organ does not promote components",
+      "Read-only v1 — phase gate organ does not promote components",
       "module_id frozen to AAIS-PG-01"
     ]
   },
@@ -67,7 +67,7 @@
   "activation": {
     "order": 1,
     "batch_id": "alt9-summon-wave-2026-06",
-    "notes": "Alt-9 wave 1 \u2014 admission fabric"
+    "notes": "Alt-9 wave 1 — admission fabric"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

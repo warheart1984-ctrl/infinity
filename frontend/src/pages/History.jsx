@@ -59,7 +59,7 @@ function History() {
         }
       } catch (error) {
         if (active) {
-          toast.error(error.message || 'Could not load the local Nova session archive.');
+          toast.error(error.message || 'Could not load the local Console session archive.');
         }
       } finally {
         if (active) {
@@ -169,16 +169,16 @@ function History() {
     }
   };
 
-  const handleLoadArchiveIntoNova = () => {
+  const handleLoadArchiveIntoConsole = () => {
     if (!selectedArchive) {
-      toast.error('Unlock or open the archive before loading it into Nova.');
+      toast.error('Unlock or open the archive before handing it to Jarvis.');
       return;
     }
 
     setActiveNovaSessionArchive(selectedArchive);
     setPendingNovaSessionArchive(selectedArchive);
-    toast.success('Archive handed off to Nova as document context.');
-    navigate('/nova');
+    toast.success('Archive handed to Jarvis as document context.');
+    navigate('/jarvis');
   };
 
   const handleDeleteArchive = async () => {
@@ -210,7 +210,7 @@ function History() {
       <div className="page-intro">
         <h1>Session Archive And Operator Log</h1>
         <p>
-          Nova session archives are opt-in, local-only, and loaded back as document context.
+          Console session archives are opt-in, local-only, and loaded back as document context.
           Operator Log stays here too for direct Jarvis chats and subsystem runs from this machine.
         </p>
       </div>
@@ -237,7 +237,7 @@ function History() {
           <section className="archive-list-panel">
             <div className="archive-panel-head">
               <div>
-                <h2>Saved Nova sessions</h2>
+                <h2>Saved Console sessions</h2>
                 <p>Stored only on this device. Loading them does not turn them into memory.</p>
               </div>
               <span className="item-type">LOCAL</span>
@@ -248,7 +248,7 @@ function History() {
             ) : archiveEntries.length === 0 ? (
               <div className="empty-state">
                 <p>No session archive yet.</p>
-                <p>Use Save Session on Nova home when you want a reopenable local session record.</p>
+                <p>Use Save Session in a chat when you want a reopenable local session record.</p>
               </div>
             ) : (
               <div className="archive-list">
@@ -301,7 +301,7 @@ function History() {
                   <div className="archive-unlock">
                     <p>
                       This archive keeps its transcript behind a passphrase. Unlock it locally to
-                      inspect the saved session or load it into Nova.
+                      inspect the saved session or hand it to Jarvis as document context.
                     </p>
                     <input
                       type="password"
@@ -311,7 +311,7 @@ function History() {
                     />
                     <button
                       type="button"
-                      className="nova-button nova-button--primary"
+                      className="nova-button jarvis-button--primary"
                       onClick={handleUnlockArchive}
                       disabled={archiveBusy}
                     >
@@ -337,8 +337,8 @@ function History() {
                 <div className="archive-detail-actions">
                   <button
                     type="button"
-                    className="nova-button nova-button--primary"
-                    onClick={handleLoadArchiveIntoNova}
+                    className="nova-button jarvis-button--primary"
+                    onClick={handleLoadArchiveIntoConsole}
                     disabled={!selectedArchive || archiveBusy}
                   >
                     Load Into Nova

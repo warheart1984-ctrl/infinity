@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 continuity organ does not override Jarvis authority",
+      "Read-only v1 — continuity organ does not override Jarvis authority",
       "Continuity questions frozen to doing, done, toward",
       "Narrative remains observe-only"
     ]
@@ -63,7 +63,7 @@
   "activation": {
     "order": 2,
     "batch_id": "alt8-summon-wave-2026-06",
-    "notes": "Alt-8 wave 2 \u2014 narrative continuity plane"
+    "notes": "Alt-8 wave 2 — narrative continuity plane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

@@ -17,7 +17,7 @@
     ],
     "invariants": [
       "Advisory-only predictions on rt lane",
-      "live_runtime_producer attestation only \u2014 no duplicate inference",
+      "live_runtime_producer attestation only — no duplicate inference",
       "No tool traffic on rt lane"
     ]
   },
@@ -66,7 +66,7 @@
   "activation": {
     "order": 2,
     "batch_id": "alt9-summon-wave-2026-06",
-    "notes": "Alt-9 wave 2 \u2014 realtime producer plane"
+    "notes": "Alt-9 wave 2 — realtime producer plane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

@@ -16,7 +16,7 @@ vi.mock('./pages/NovaPage', () => ({
   default: function MockNovaPage() {
     return (
       <main>
-        <h1>Small Nova</h1>
+        <h1>Jarvis</h1>
         <p>Companion surface under Jarvis authority</p>
       </main>
     );
@@ -39,10 +39,10 @@ describe('App routing', () => {
     window.history.pushState({}, '', '/');
   });
 
-  it('keeps Small Nova as the home surface', async () => {
+  it('lands on Jarvis as the home surface', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /Small Nova/i })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: /Jarvis/i })).toBeTruthy();
     expect(screen.getByText(/Companion surface under Jarvis authority/i)).toBeTruthy();
     expect(screen.getByRole('link', { name: /^Categories$/i })).toBeTruthy();
     expect(screen.getByRole('link', { name: /^Console$/i })).toBeTruthy();

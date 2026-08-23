@@ -17,7 +17,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 organ does not mutate upstream authority",
+      "Read-only v1 — organ does not mutate upstream authority",
       "module_id frozen to AAIS-NLS-01"
     ]
   },
@@ -43,7 +43,7 @@
   },
   "proof": {
     "bundles": [
-      "E:\\project-infi\\docs\\proof\\platform\\NOVA_LANDING_SURFACE_ORGAN_GOVERNED_PROOF.md"
+      "docs/proof/platform/NOVA_LANDING_SURFACE_ORGAN_GOVERNED_PROOF.md"
     ],
     "posture": "governed",
     "target_bundles": [

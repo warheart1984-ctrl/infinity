@@ -66,6 +66,7 @@ from app.db import (
     list_workflow_runs, list_workflows, now_iso, update_workflow, update_workflow_approval, update_workflow_run,
 )
 from app.auth import require_token, check_sse_token, check_ws_token
+from app.transcription import router as transcription_router
 from app.tasks import run_agent_job, run_workflow_job
 from app.rag import index_project, query_project
 from src.cisiv import normalize_cisiv_stage
@@ -273,6 +274,7 @@ class StatusCacheMiddleware:
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.add_middleware(LegacyPrefixRewriteMiddleware)
 app.add_middleware(StatusCacheMiddleware)
+app.include_router(transcription_router)
 # legacy bridge is mounted at root at end of module
 
 

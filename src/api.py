@@ -18556,26 +18556,82 @@ def tts_audio():
 @app.route("/api/audio/transcribe", methods=["POST"])
 @app.route("/legacy_api/api/audio/transcribe", methods=["POST"])
 def transcribe_audio():
-    """Transcribe audio file to text"""
+    """Compatibility adapter; FastAPI owns the canonical unprefixed route."""
     try:
+        from src.transcription_policy import (
+            AudioValidationError,
+            AudioUploadTooLarge,
+            TranscriptionAccessDenied,
+            TranscriptionRateLimited,
+            build_transcription_error_receipt,
+            enforce_transcription_rate_limit,
+            read_audio_bounded,
+            require_transcription_access,
+            validate_pcm16_wav,
+            validate_wav_content_type,
+        )
+
+        try:
+            require_transcription_access(
+                authorization=request.headers.get("Authorization"),
+                client_host=request.remote_addr,
+                forwarded_for=request.headers.get("X-Forwarded-For"),
+            )
+            enforce_transcription_rate_limit(
+                authorization=request.headers.get("Authorization"),
+                client_host=request.remote_addr,
+                forwarded_for=request.headers.get("X-Forwarded-For"),
+            )
+        except TranscriptionAccessDenied as exc:
+            return jsonify({"error": str(exc)}), exc.status_code
+        except TranscriptionRateLimited as exc:
+            return (
+                jsonify({"error": str(exc), "retry_after": exc.retry_after_seconds}),
+                exc.status_code,
+                {"Retry-After": str(exc.retry_after_seconds)},
+            )
+
         if "audio" not in request.files:
             return jsonify({"error": "Audio file is required"}), 400
 
-        speech_module = _load_module("src.speech")
-        speech_to_text = speech_module.speech_to_text
+        from src.transcription_service import transcribe_audio_with_shadow
+
         audio_file = request.files["audio"]
         language = request.form.get("language")
-
-        # Determine file extension
         filename = audio_file.filename or "audio.wav"
-        suffix = os.path.splitext(filename)[1] or ".wav"
-
-        audio_bytes = audio_file.read()
-        result = speech_to_text.transcribe_bytes(
-            audio_bytes, suffix=suffix, language=language
+        content_type = getattr(audio_file, "content_type", None) or getattr(
+            audio_file, "mimetype", None
+        )
+        validate_wav_content_type(content_type, filename)
+        audio_bytes = read_audio_bounded(audio_file)
+        validate_pcm16_wav(
+            audio_bytes,
+            content_type=content_type,
+            filename=filename,
+        )
+        result = transcribe_audio_with_shadow(
+            audio_bytes,
+            filename=filename,
+            language=language,
+            content_type=content_type or "audio/wav",
         )
         return jsonify(result)
 
+    except AudioValidationError as e:
+        receipt = build_transcription_error_receipt(
+            e,
+            filename=locals().get("filename", "audio.wav"),
+            content_type=locals().get("content_type"),
+            audio_bytes=locals().get("audio_bytes"),
+        )
+        logger.warning(
+            "transcription_audit event=upload_refused code=%s receipt_id=%s",
+            e.code,
+            receipt["receiptId"],
+        )
+        return jsonify({"error": str(e), "receipt": receipt}), e.status_code
+    except AudioUploadTooLarge as e:
+        return jsonify({"error": str(e), "max_audio_bytes": e.max_audio_bytes}), 413
     except Exception as e:
         logger.error(f"Error in transcribe_audio: {e}")
         return jsonify({"error": str(e)}), 500

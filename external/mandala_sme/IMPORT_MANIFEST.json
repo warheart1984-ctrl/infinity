@@ -1,0 +1,202 @@
+{
+  "schema": "project-infinity-sme-import/1.0",
+  "status": "live_validated",
+  "package": {
+    "name": "@mandala/sme",
+    "version": "0.1.1",
+    "path": "external/mandala_sme/package",
+    "tarball_sha256": "0507b1f89d2bc4d9603746272ebe69e425440400bfbefb1aa5be048cf8b5af9c",
+    "file_count": 28
+  },
+  "source": {
+    "repository": "Mandala Rendering Software",
+    "git_commit": "02e0a9355489f8ad0ce9b2fbde35a2b76d257db2",
+    "subtree_git_tree": "4a09e5a63a34a5269f2d87dfe2c113b4b25eb9cd",
+    "working_tree_patch": {
+      "status": "validated_uncommitted",
+      "purpose": "Replay handles for governed execution refusals"
+    }
+  },
+  "activation": {
+    "mode": "shadow",
+    "capability": "image_preflight",
+    "capabilities": [
+      {
+        "name": "image_preflight",
+        "status": "validated"
+      },
+      {
+        "name": "transcription",
+        "status": "validated_shadow_backend_eligible",
+        "providers": ["local", "cloud", "auto"]
+      }
+    ],
+    "primary_jarvis_response_changed": false,
+    "divine_core_demoted": false,
+    "api_route_registered": true,
+    "canonical_route": "/api/audio/transcribe",
+    "canonical_route_framework": "fastapi",
+    "flask_compatibility_route": "/legacy_api/api/audio/transcribe",
+    "framework_neutral_service": "src/transcription_service.py",
+    "migration_status": "live_validated_shadow_active",
+    "shadow_enabled_by_default": false,
+    "live_shadow_service_enabled": true,
+    "shadow_submission_blocking": false
+  },
+  "verification": {
+    "mandala_package_tests": {
+      "passed": 38,
+      "failed": 0
+    },
+    "project_infinity_consumer_tests": {
+      "passed": 49,
+      "failed": 0,
+      "scope": "transcription policy, service, transports, provider shadow, speech HTTP, and OpenAPI registration"
+    },
+    "transport_security": {
+      "policy": "bearer_when_configured_otherwise_loopback_only",
+      "configured_token_required_on_loopback": true,
+      "untrusted_forwarding_spoof_blocked": true,
+      "primary_max_audio_bytes_default": 10485760,
+      "oversize_status_code": 413,
+      "fastapi_stream_read_bounded": true,
+      "flask_stream_read_bounded": true,
+      "service_defense_in_depth_bound": true,
+      "route_scoped_rate_limit": true,
+      "rate_limit_default": "12 requests per 60 seconds per caller",
+      "accepted_media": "uncompressed PCM16 WAV only",
+      "unsupported_media_status_code": 415,
+      "malformed_audio_status_code": 422,
+      "structured_refusal_receipts": true,
+      "shadow_activation_audit_log": true
+    },
+    "lock_matched_runtime": {
+      "status": "verified",
+      "installer": "uv sync --locked --extra dev",
+      "environment": ".venv",
+      "global_python_modified": false
+    },
+    "primary_whisper": {
+      "status": "verified",
+      "default_policy": "auto",
+      "local_endpoint": "http://127.0.0.1:13312/inference",
+      "remote_requires_https_and_opt_in": true,
+      "http_response_max_bytes": 2097152,
+      "persistent_service_enabled": true,
+      "persistent_service_active": true,
+      "bind": "127.0.0.1:13312",
+      "runtime_version": "whisper-vulkan-q4_0-rx580-bo1-glossary",
+      "model": "ggml-base.en-q4_0.bin",
+      "model_sha256": "061f5bbb87a81ce67bc45642b3f92233bfa380e4b58c909dc3e6c6e3dc0d3c7d",
+      "backend": "whisper.cpp Vulkan",
+      "device": "AMD Radeon RX 480 Graphics (RADV POLARIS10)",
+      "cpu_standby": "127.0.0.1:13314",
+      "cpu_fallback_model_sha256": "c2085835d3f50733e2ff6e4b41ae8a2b8d8110461e18821b09a15c40c42d1cca",
+      "live_primary_smoke": {
+        "status": "verified",
+        "expected": "Jarvis verifies the local transcription service.",
+        "observed": "Jarvis verifies the local transcription service."
+      }
+    },
+    "live_request_shadow_lane": {
+      "status": "validated_shadow_backend_eligible",
+      "queue_size_default": 4,
+      "max_audio_bytes_default": 10485760,
+      "accepted_format": "PCM WAV normalized privately to 16 kHz mono PCM16",
+      "original_and_execution_hashes_recorded": true,
+      "temporary_audio_retained": false,
+      "transcript_content_stored_in_metrics": false,
+      "ground_truth_observations": 25,
+      "real_sme_p95_latency_ms": 2119.732,
+      "real_sme_status": "verified",
+      "real_evidence_segments_present": 7,
+      "real_evidence_segments_required": 7,
+      "primary_jarvis_status": "completed",
+      "comparison_scored": true,
+      "observation": ".runtime/sme-shadow/live-transcription/observations.jsonl",
+      "promotion_status": ".runtime/sme-shadow/live-transcription/promotion-status.json",
+      "promotion_eligible": true,
+      "automatic_promotion": false,
+      "live_smoke_observations": 2,
+      "latest_live_intent_id": "live-transcription-5bcd7816e472479c892d265fdbf0a310",
+      "latest_live_continuity_memory_id": "mem-7030964e5205"
+    },
+    "transcription_provider_contract": {
+      "local_success_tested": true,
+      "cloud_success_tested_with_loopback_double": true,
+      "cloud_requires_explicit_consent": true,
+      "auto_local_to_cloud_fallback_tested": true,
+      "tokens_excluded_from_receipts": true,
+      "remote_cloud_benchmark": "not_run_no_provider_configured"
+    },
+    "ground_truth_promotion_benchmark": {
+      "status": "pass",
+      "dataset": "25 unique synthetic Piper clean-speech observations",
+      "summary": "runtime/transcription/ledger/benchmarks/whisper-vulkan-q4_0-rx580-bo1-glossary.json",
+      "primary_backend": "Systran/faster-whisper-base",
+      "primary_completed": 25,
+      "primary_mean_word_accuracy": 0.96001,
+      "primary_p95_latency_ms": 3142.109,
+      "sme_backend": "whisper.cpp base.en Q4_0 Vulkan best-of 1 with glossary",
+      "sme_completed": 25,
+      "sme_mean_word_accuracy": 0.959566,
+      "accuracy_delta": -0.000444,
+      "sme_p95_latency_ms": 2119.732,
+      "evidence_complete": 25,
+      "continuity_ledger_linked": 25,
+      "refusals": 0,
+      "gates_passed": 9,
+      "gates_total": 9,
+      "failed_gate": null,
+      "promotion_eligible": true,
+      "operator_review_required": true,
+      "divine_core_demoted": false
+    },
+    "refusal_replay": {
+      "evidence_required": true,
+      "replay_handle_required": true,
+      "validated": true
+    },
+    "mandala_render_shadow_smoke": {
+      "status": "verified",
+      "source": "/media/jon/New Volume/Mandala Rendering Software/output/test-movie/scene-005/still/scene-005-still.png",
+      "source_sha256": "872f7b08b1382490c4da8ddcf38001278b59742e7347237b7152a56d145bc946",
+      "width": 128,
+      "height": 128,
+      "latency_ms": 18.394,
+      "semantic_understanding": false,
+      "replay_handle": "afe3f68504c26893ebd40a30ed5ef992ea6308a34e0e43c259358a02f23fe29b",
+      "receipt": ".runtime/sme-shadow/receipts/mandala-scene-005-port-smoke-872f7b08b138.json"
+    },
+    "continuity_ledger": {
+      "link_contract_tested": true,
+      "live_record_persisted": true,
+      "benchmark_records_linked": 25,
+      "runtime_version": "whisper-vulkan-q4_0-rx580-bo1-glossary",
+      "promotion_certificate": "runtime/transcription/ledger/PROMOTION_CERTIFICATE.json",
+      "promotion_certificate_sha256": "f9d6eb41ed4073aed5c5d313c0d46edc2f25375d8f99200d6d87a6bcea1ecc24",
+      "runtime_manifest": "runtime/transcription/RUNTIME_MANIFEST.json",
+      "runtime_manifest_sha256": "b5968f3b936b73d9dbbc5d9e37941748b562414b09aa599bf6a85a10c8a58be9",
+      "production_backend_selected_memory_id": "mem-d11ceddee8b8",
+      "production_failover_memory_id": "mem-ca7794f3fa36"
+    },
+    "live_checkout_regression": {
+      "focused_status": "pass",
+      "focused_passed": 49,
+      "focused_failed": 0,
+      "full_collection_blocker": "tests/test_mesh_federation_live.py imports absent app.create_app",
+      "full_collection_blocker_reproduced_at_clean_target_commit": true,
+      "continued_suite_passed": 2218,
+      "continued_suite_failed": 239,
+      "continued_suite_skipped": 14,
+      "classification": "pre_existing_repository_and_environment_debt_outside_transcription_gate"
+    }
+  },
+  "excluded": [
+    "dependency trees",
+    "runtime logs",
+    "credentials",
+    "conflict-marked Python SME packages",
+    "mock MCP dispatcher"
+  ]
+}

@@ -1,6 +1,12 @@
 """Tests for Spiral-inspired conversation session state."""
 
+import json
+import os
+import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
 
 from src.god_brain import build_god_brain_trace
 from src.conversation_memory import (
@@ -22,6 +28,48 @@ class TestConversationSession(unittest.TestCase):
         """Auto-best should stay explicit instead of collapsing into a provider id."""
         self.assertEqual(normalize_provider_mode_identifier("auto"), "auto_best")
         self.assertEqual(derive_provider_mode("auto", "local"), "auto_best")
+
+    def test_persistent_snapshot_restores_turn_timestamp(self):
+        """Disk restore must preserve the historical time attached to each turn."""
+        historical_timestamp = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+        snapshot = [
+            {
+                "session_id": "timestamp-restore",
+                "system_prompt": None,
+                "created_at": historical_timestamp,
+                "updated_at": historical_timestamp,
+                "max_turns": 50,
+                "turns": [
+                    {
+                        "role": "user",
+                        "content": "Preserve when this happened.",
+                        "timestamp": historical_timestamp,
+                    }
+                ],
+                "metadata": {},
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot_path = Path(directory) / "conversation_sessions.json"
+            snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+            with patch.dict(
+                os.environ,
+                {
+                    "AAIS_PERSIST_SESSIONS": "1",
+                    "AAIS_SESSION_SNAPSHOT_PATH": str(snapshot_path),
+                    "AAIS_SESSION_TTL_HOURS": "168",
+                },
+            ):
+                memory = ConversationMemory()
+                try:
+                    restored = memory.sessions["timestamp-restore"]
+                    self.assertEqual(
+                        restored.turns[0].timestamp.isoformat(),
+                        historical_timestamp,
+                    )
+                finally:
+                    memory._autosave_stop.set()
 
     def test_user_turn_updates_spiral_mode_and_memory(self):
         """User requests should update the live mode and learned preferences."""

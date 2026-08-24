@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-infinity.local/schemas/amul_epistemic_ledger.v1.json",
+  "title": "AMUL Epistemic Ledger Claim Event v1",
+  "description": "A timestamped evidence claim. Temporal freshness is derived; semantic truth is not adjudicated by this record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_version",
+    "schema_version",
+    "module_id",
+    "claim_id",
+    "subject",
+    "proposition",
+    "kind",
+    "source",
+    "scope",
+    "observed_at",
+    "valid_until",
+    "recorded_at",
+    "confidence",
+    "epistemic_state",
+    "evidence_refs",
+    "verification_method",
+    "supersedes",
+    "contradicts",
+    "prev_row_hash",
+    "row_hash"
+  ],
+  "properties": {
+    "event_version": {"const": "amul_epistemic_claim_event.v1"},
+    "schema_version": {"const": "amul_epistemic_ledger.v1"},
+    "module_id": {"const": "AAIS-AEL-01"},
+    "claim_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subject": {"type": "string", "minLength": 1, "maxLength": 240},
+    "proposition": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "kind": {
+      "type": "string",
+      "enum": ["reported", "observed", "inferred", "predicted"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1, "maxLength": 64},
+        "ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "note": {"type": "string", "maxLength": 500}
+      }
+    },
+    "scope": {"type": "string", "minLength": 1, "maxLength": 240},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "valid_until": {
+      "oneOf": [
+        {"type": "string", "format": "date-time"},
+        {"type": "null"}
+      ]
+    },
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "epistemic_state": {
+      "type": "string",
+      "enum": ["rejected", "pending", "proven"]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "verification_method": {
+      "oneOf": [
+        {"type": "string", "minLength": 1, "maxLength": 500},
+        {"type": "null"}
+      ]
+    },
+    "supersedes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "contradicts": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "prev_row_hash": {"type": "string", "pattern": "^[a-f0-9]{0,64}$"},
+    "row_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "observed"}}},
+      "then": {
+        "properties": {
+          "evidence_refs": {"minItems": 1},
+          "verification_method": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}

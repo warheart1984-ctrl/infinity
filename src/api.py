@@ -35,6 +35,11 @@ from src.anti_drift import (
     build_thread_contract as build_anti_drift_thread_contract,
     enforce_anti_drift,
 )
+from src.amul_epistemic_ledger import (
+    EpistemicLedgerIntegrityError,
+    amul_epistemic_ledger,
+    build_epistemic_law_prompt_block,
+)
 from src.aais_blueprint import build_aais_blueprint
 from src.aais_ul_substrate import attach_ul_substrate, substrate_status
 from src.chat_turn_governance import (
@@ -6098,7 +6103,7 @@ def _maybe_handle_freeform_external_suggestion(
 
 def _extra_prompt_blocks(session, *, plan_summary=None, local_fallback=False):
     """Build identity-stable prompt blocks for per-turn guidance overlays."""
-    blocks = []
+    blocks = [build_epistemic_law_prompt_block()]
     if local_fallback:
         blocks.append(
             {
@@ -8456,6 +8461,107 @@ def multimodal_query():
 # ──────────────────────────────────────────────
 # Jarvis Memory / Workspace Tools
 # ──────────────────────────────────────────────
+
+
+def _epistemic_security_check(*, action: Action, resource_id: str, route: str):
+    """Apply the existing memory policy to epistemic evidence access."""
+    return _run_security_check(
+        caller=_build_caller_context(actor_id="epistemic_ledger", actor_role="owner"),
+        resource=ResourceMeta(
+            id=resource_id,
+            type=ResourceType.MEMORY,
+            category="epistemic_ledger",
+            sensitivity=7,
+        ),
+        action=action,
+        details={"route": route, "module_id": "AAIS-AEL-01"},
+    )
+
+
+@app.route("/api/jarvis/epistemic/status", methods=["GET"])
+def get_jarvis_epistemic_status():
+    """Return the temporal evidence ledger's integrity and capability status."""
+    security_result = _epistemic_security_check(
+        action=Action.READ_MEMORY,
+        resource_id="epistemic_ledger",
+        route="/api/jarvis/epistemic/status",
+    )
+    if not security_result["decision"]["allowed"]:
+        return _build_security_block_response(security_result)
+    return jsonify(amul_epistemic_ledger.status())
+
+
+@app.route("/api/jarvis/epistemic/claims", methods=["GET"])
+def list_jarvis_epistemic_claims():
+    """List timestamped evidence claims without adjudicating their truth."""
+    try:
+        subject = request.args.get("subject")
+        scope = request.args.get("scope")
+        limit = max(1, min(int(request.args.get("limit", 50)), 500))
+        security_result = _epistemic_security_check(
+            action=Action.READ_MEMORY,
+            resource_id=subject or "epistemic_ledger",
+            route="/api/jarvis/epistemic/claims",
+        )
+        if not security_result["decision"]["allowed"]:
+            return _build_security_block_response(security_result)
+        claims = amul_epistemic_ledger.list_claims(
+            subject=subject,
+            scope=scope,
+            limit=limit,
+        )
+        return jsonify({"claims": claims, "count": len(claims), "truth_adjudicated": False})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except EpistemicLedgerIntegrityError as exc:
+        logger.error("Epistemic ledger integrity failure while listing claims: %s", exc)
+        return jsonify({"error": str(exc), "status": "integrity_error"}), 409
+
+
+@app.route("/api/jarvis/epistemic/claims", methods=["POST"])
+def add_jarvis_epistemic_claim():
+    """Append one timestamped claim to the governed evidence ledger."""
+    try:
+        data = request.get_json(silent=True) or {}
+        security_result = _epistemic_security_check(
+            action=Action.WRITE_MEMORY,
+            resource_id=str(data.get("subject") or "epistemic_ledger"),
+            route="/api/jarvis/epistemic/claims",
+        )
+        if not security_result["decision"]["allowed"]:
+            return _build_security_block_response(security_result)
+        claim = amul_epistemic_ledger.append_claim(data)
+        return jsonify({"claim": claim, "truth_adjudicated": False}), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except EpistemicLedgerIntegrityError as exc:
+        logger.error("Epistemic ledger integrity failure while appending a claim: %s", exc)
+        return jsonify({"error": str(exc), "status": "integrity_error"}), 409
+
+
+@app.route("/api/jarvis/epistemic/reconcile", methods=["POST"])
+def reconcile_jarvis_epistemic_claims():
+    """Derive temporal claim states for one subject, scope, and instant."""
+    try:
+        data = request.get_json(silent=True) or {}
+        security_result = _epistemic_security_check(
+            action=Action.READ_MEMORY,
+            resource_id=str(data.get("subject") or "epistemic_ledger"),
+            route="/api/jarvis/epistemic/reconcile",
+        )
+        if not security_result["decision"]["allowed"]:
+            return _build_security_block_response(security_result)
+        result = amul_epistemic_ledger.reconcile(
+            subject=data.get("subject"),
+            scope=data.get("scope") or "global",
+            as_of=data.get("as_of"),
+        )
+        return jsonify(result)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except EpistemicLedgerIntegrityError as exc:
+        logger.error("Epistemic ledger integrity failure during reconciliation: %s", exc)
+        return jsonify({"error": str(exc), "status": "integrity_error"}), 409
 
 @app.route("/api/jarvis/memory", methods=["GET"])
 def list_jarvis_memories():

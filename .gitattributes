@@ -13,3 +13,6 @@ wolf-cog-os/payload/usr/local/bin/cogos-install-finish text eol=lf
 .github/scripts/**/*.sh text eol=lf
 .github/workflows/** text eol=lf
 Makefile text eol=lf
+
+# Preserve the governed SME package payload byte-for-byte for provenance.
+external/mandala_sme/package/** -text

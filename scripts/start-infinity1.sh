@@ -55,22 +55,18 @@ echo "Python: $PY"
 
 VENV="$ROOT/.venv"
 if [[ "$SKIP_INSTALL" -eq 0 ]]; then
-  if [[ ! -x "$VENV/bin/python" ]]; then
-    echo "Creating virtual environment..."
-    "$PY" -m venv "$VENV"
+  UV_BIN="$(command -v uv || true)"
+  if [[ -z "$UV_BIN" ]]; then
+    UV_TOOL_VENV="$ROOT/.runtime/tools/uv"
+    if [[ ! -x "$UV_TOOL_VENV/bin/uv" ]]; then
+      echo "Bootstrapping project-local uv..."
+      "$PY" -m venv "$UV_TOOL_VENV"
+      "$UV_TOOL_VENV/bin/python" -m pip install uv
+    fi
+    UV_BIN="$UV_TOOL_VENV/bin/uv"
   fi
-  if ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
-    echo "Bootstrapping pip in .venv (ensurepip)..."
-    "$VENV/bin/python" -m ensurepip --upgrade || {
-      echo "Recreating broken virtual environment..."
-      rm -rf "$VENV"
-      "$PY" -m venv "$VENV"
-      "$VENV/bin/python" -m ensurepip --upgrade
-    }
-  fi
-  echo "Installing AAIS package and dependencies (editable)..."
-  "$VENV/bin/python" -m pip install --upgrade pip wheel setuptools
-  "$VENV/bin/python" -m pip install -e ".[dev]"
+  echo "Synchronizing the lock-matched AAIS environment..."
+  "$UV_BIN" sync --locked --extra dev --python "$PY"
 fi
 
 RUN_PY="$VENV/bin/python"

@@ -1,0 +1,46 @@
+{
+  "schema": "jarvis-transcription-runtime-promotion-certificate/1.0",
+  "runtime_version": "whisper-vulkan-q4_0-rx580-bo1-glossary",
+  "issued_at": "2026-08-24T13:35:51-04:00",
+  "scope": "transcription backend only",
+  "status": "verified",
+  "authority": {
+    "jarvis_remains_executive": true,
+    "sme_remains_governed": true,
+    "scope_expansion": false
+  },
+  "benchmark": {
+    "record": "benchmarks/whisper-vulkan-q4_0-rx580-bo1-glossary.json",
+    "record_sha256": "b9d4a49eb6f04041824c951ed118e409047d4338b8a043858832dcba0e3cde1b",
+    "observations": 25,
+    "primary_mean_word_accuracy": 0.96001,
+    "candidate_mean_word_accuracy": 0.959566,
+    "accuracy_delta": -0.000444,
+    "allowed_noninferiority_delta": -0.02,
+    "candidate_p95_latency_ms": 2119.732,
+    "maximum_p95_latency_ms": 2500,
+    "evidence_complete": 25,
+    "continuity_ledger_linked": 25,
+    "refusals": 0,
+    "noninferiority_passed": true,
+    "all_transcription_gates_passed": true
+  },
+  "runtime": {
+    "manifest": "../RUNTIME_MANIFEST.json",
+    "manifest_sha256": "b5968f3b936b73d9dbbc5d9e37941748b562414b09aa599bf6a85a10c8a58be9",
+    "artifact_hash_verification": "required_before_launch",
+    "packaged_library_policy": "LD_LIBRARY_PATH prepends whisper-vulkan/lib",
+    "vulkan_device": "AMD Radeon RX 480 Graphics (RADV POLARIS10)",
+    "vulkan_model_sha256": "061f5bbb87a81ce67bc45642b3f92233bfa380e4b58c909dc3e6c6e3dc0d3c7d",
+    "vulkan_binary_sha256": "4936cf9d07796fd05e00e8a54a89e72e0ffc0c49f1a34fcbe3b3430891151bc1",
+    "stable_port": 13312,
+    "cpu_standby_port": 13314,
+    "cpu_fallback_model_sha256": "c2085835d3f50733e2ff6e4b41ae8a2b8d8110461e18821b09a15c40c42d1cca",
+    "fallback_policy": "health-checked warm standby then stable-port failover"
+  },
+  "operator_review": {
+    "status": "authorized",
+    "scope": "everything except executive core authority",
+    "automatic_authority_change": false
+  }
+}

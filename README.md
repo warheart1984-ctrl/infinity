@@ -159,6 +159,18 @@ make translate-mythic MYTHIC='V9 runtime steward'   # mythic → engineering_cla
 
 AAIS separates **cognition authority**, **workflow shell**, and **optional ops planes**. Jarvis runtime truth lives in Flask (`src/api.py`); the FastAPI shell (`app/main.py`) hosts the operator UI and bridges to Jarvis at `/legacy_api`.
 
+The bounded migration pilot makes `POST /api/audio/transcribe` native FastAPI.
+It calls a framework-neutral Jarvis transcription service, with the former
+Flask transport retained at `/legacy_api/api/audio/transcribe`. SME-AUD remains
+shadow-only and cannot change the primary response. Primary uploads are capped
+at 10 MiB and rate-limited to 12 requests per 60 seconds per caller by default.
+Only uncompressed PCM16 WAV input is admitted; invalid media produces a
+structured refusal receipt before either Whisper or SME runs. With
+`APP_BEARER_TOKEN` configured the route always requires bearer authentication;
+without it, only direct loopback callers are accepted. See
+`external/mandala_sme/README.md` for the governed Vulkan/CPU runtime, Continuity
+Ledger evidence, and promotion instructions.
+
 ```mermaid
 flowchart LR
     subgraph cognition [Cognition executive]
@@ -394,7 +406,8 @@ cd Project-Infinity1
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Unix:    source .venv/bin/activate
-python -m pip install -e ".[dev]"
+# Install uv first if it is not already available.
+uv sync --locked --extra dev
 cp .env.example .env
 python -m aais prepare --data-dir ./.runtime/aais-data
 python -m aais doctor --data-dir ./.runtime/aais-data
@@ -492,6 +505,7 @@ make run
 | Health | http://127.0.0.1:8000/health |
 | App shell | http://127.0.0.1:8000/app |
 | Jarvis console | http://127.0.0.1:8000/app/jarvis |
+| Native transcription pilot (FastAPI) | `POST /api/audio/transcribe` |
 | Legacy Jarvis API (Flask) | mounted at `/legacy_api` via FastAPI bridge |
 
 ### Verification Step

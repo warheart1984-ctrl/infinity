@@ -1,0 +1,50 @@
+{
+  "schema": "project-infinity-transcription-runtime/1.0",
+  "version": "whisper-vulkan-q4_0-rx580-bo1-glossary",
+  "stable_endpoint": "http://127.0.0.1:13312/inference",
+  "standby_endpoint": "http://127.0.0.1:13314/inference",
+  "vulkan": {
+    "device": "AMD Radeon RX 480 Graphics (RADV POLARIS10)",
+    "source_commit": "c122757fddf358397bb7f33b6ac3aab24a5bca04",
+    "binary": "whisper-vulkan/bin/whisper-server",
+    "binary_sha256": "4936cf9d07796fd05e00e8a54a89e72e0ffc0c49f1a34fcbe3b3430891151bc1",
+    "library_policy": "launcher_prepend_packaged_directory",
+    "shared_libraries": [
+      {
+        "path": "whisper-vulkan/lib/libwhisper.so.1.9.3",
+        "sha256": "c1a03d1a821b3c90f5a31e18d0d840e38ee05a24a30656f7786f0235c4f89bcf"
+      },
+      {
+        "path": "whisper-vulkan/lib/libggml.so.0.21.0",
+        "sha256": "8d94f780e22fb0b2d5eabc8491fe56a8a4930cf2afaa3ed155d8d708f641a905"
+      },
+      {
+        "path": "whisper-vulkan/lib/libggml-base.so.0.21.0",
+        "sha256": "5872b613bb5cc5b07f791cdb3a7a4bb5400c55e65de516a4c71254ca47095cc0"
+      },
+      {
+        "path": "whisper-vulkan/lib/libggml-cpu.so.0.21.0",
+        "sha256": "27105e23066025a88f4e89cbf797ee0b26fe0ac6ae319afeecf69d60e6564d8f"
+      },
+      {
+        "path": "whisper-vulkan/lib/libggml-vulkan.so.0.21.0",
+        "sha256": "4e0283827734594b0bf11d76e17218dcfde96459edeb46d39aeaaa8b7b76789b"
+      }
+    ],
+    "model": "whisper-vulkan/models/ggml-base.en-q4_0.bin",
+    "model_sha256": "061f5bbb87a81ce67bc45642b3f92233bfa380e4b58c909dc3e6c6e3dc0d3c7d",
+    "glossary": "whisper-vulkan/glossary.txt",
+    "glossary_sha256": "15dbf48026ee6f510afcbae5007ead0b29b0f72f90c50be4fecad2e36b5fe23a",
+    "best_of": 1
+  },
+  "cpu_fallback": {
+    "binary": "whisper-cpu/bin/whisper-server",
+    "binary_sha256": "469d62141180c9484db6160d75dde8977fdda7141e81b623cdc26722c2beebc2",
+    "model": "whisper-cpu/models/ggml-tiny-q8_0.bin",
+    "model_sha256": "c2085835d3f50733e2ff6e4b41ae8a2b8d8110461e18821b09a15c40c42d1cca",
+    "no_gpu": true
+  },
+  "promotion_certificate": "ledger/PROMOTION_CERTIFICATE.json",
+  "benchmark": "ledger/benchmarks/whisper-vulkan-q4_0-rx580-bo1-glossary.json",
+  "backend_selection_ledger": "ledger/backend-selection.jsonl"
+}

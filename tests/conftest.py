@@ -3,8 +3,22 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import tempfile
 
 import pytest
+
+
+# Test modules import ``src.api`` during collection, before fixtures run.  Give
+# every pytest process its own durable-session path at import time so a local
+# ``AAIS_PERSIST_SESSIONS=1`` setting can never load, expire, or rewrite the
+# operator's live conversation snapshot.
+_SESSION_SNAPSHOT_SANDBOX = tempfile.TemporaryDirectory(
+    prefix="aais-pytest-conversation-sessions-"
+)
+os.environ["AAIS_SESSION_SNAPSHOT_PATH"] = str(
+    Path(_SESSION_SNAPSHOT_SANDBOX.name) / "conversation_sessions.json"
+)
 
 
 @pytest.fixture(scope="session", autouse=True)

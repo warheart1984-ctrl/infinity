@@ -1,0 +1,65 @@
+{
+  "baseline": "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v2/promotion-benchmark.json",
+  "comparison_reports": [
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-01.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-02.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-03.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-04.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-05.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-06.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-07.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-08.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-09.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-10.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-11.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-12.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-13.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-14.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-15.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-16.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-17.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-18.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-19.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-20.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-21.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-22.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-23.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-24.json",
+    "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/comparisons/hardening-benchmark-v4-vulkan-q4-glossary-bo1-25.json"
+  ],
+  "criteria": {
+    "continuity_ledger_linked_100_percent": true,
+    "evidence_completeness_100_percent": true,
+    "minimum_25_observations": true,
+    "refusal_rate_zero": true,
+    "sme_completion_100_percent": true,
+    "sme_mean_accuracy_noninferior_within_2_points": true,
+    "sme_mean_word_accuracy_at_least_90_percent": true,
+    "sme_p95_latency_at_most_2500_ms": true
+  },
+  "dataset": {
+    "audio_root": "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v2/audio",
+    "kind": "synthetic_piper_clean_speech",
+    "observations": 25
+  },
+  "jarvis_executive_authority_changed": false,
+  "operator_review_required": true,
+  "primary": {
+    "backend": "Systran/faster-whisper-base (v2 fixed baseline)",
+    "mean_word_accuracy": 0.96001
+  },
+  "schema": "jarvis-sme-transcription-promotion-benchmark/1.0",
+  "sme": {
+    "backend": "whisper.cpp base.en Q4_0 Vulkan RX 580 glossary best-of-1",
+    "build_commit": "c122757fddf358397bb7f33b6ac3aab24a5bca04",
+    "completed": 25,
+    "continuity_ledger_linked": 25,
+    "evidence_complete": 25,
+    "mean_word_accuracy": 0.959566,
+    "p95_latency_ms": 2119.732,
+    "refusals": 0
+  },
+  "status": "verified",
+  "summary_path": "/media/jon/New Volume/Project Infinity/.runtime/sme-shadow/hardening-benchmark-v4-vulkan-q4-glossary-bo1/promotion-benchmark.json",
+  "transcription_backend_promotion_eligible": true
+}

@@ -25,6 +25,13 @@ def adopted_habits(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_habit(habit: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in habit.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(habit.get("cen_approval"), sink="culture_habit", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
+
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_habit_registry.v1.json"
     doc = load_habit_registry(repo_root=root)

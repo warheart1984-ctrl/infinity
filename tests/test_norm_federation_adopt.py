@@ -28,6 +28,8 @@ class NormFederationAdoptTests(unittest.TestCase):
             gov / "operator_norm_federation_registry.v1.json",
         )
         self.runtime = NormFederationRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "tcand_test001",
             "treaty_kind": "cluster_norm",

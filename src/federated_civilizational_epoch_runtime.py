@@ -208,6 +208,7 @@ class FederatedCivilizationalEpochRuntime:
         external_witnesses: list[dict[str, Any]] | None = None,
         operator_org_domain: str | None = None,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "status": 403}
@@ -254,6 +255,22 @@ class FederatedCivilizationalEpochRuntime:
             "candidate_id": candidate.get("candidate_id"),
             "jarvis_receipt_id": auth.get("jarvis_receipt_id"),
         }
+        from src.cen_governance_bridge import cen_governance_bridge
+
+        cen_approval = cen_governance_bridge.gate_law_state_write(
+            sink="federated_epoch_charter",
+            record=charter,
+            actor=str(auth.get("actor") or "operator"),
+            authority_token=authority_token,
+        )
+        if cen_approval.get("outcome") != "approved":
+            return {
+                "outcome": "blocked",
+                "reason": cen_approval.get("reason") or "cen_denied",
+                "cen": cen_approval,
+                "status": 403,
+            }
+        charter["cen_approval"] = cen_approval
         save_adopted_charter(charter, runtime_dir=self._runtime_dir)
         self._write_epoch_overlay(charter)
         self._emit_epoch_adoption_ledger(session_id, charter)

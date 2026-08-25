@@ -25,6 +25,13 @@ def adopted_treaties(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_treaty(treaty: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in treaty.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(treaty.get("cen_approval"), sink="norm_federation_treaty", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
+
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_norm_federation_registry.v1.json"
     doc = load_norm_federation_registry(repo_root=root)

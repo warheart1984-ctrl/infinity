@@ -30,6 +30,8 @@ class ConstitutionalEvolutionAdoptTests(unittest.TestCase):
             gov / "operator_constitutional_evolution_registry.v1.json",
         )
         self.runtime = ConstitutionalEvolutionRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "amcand_test001",
             "charter_id": "charter_test001",

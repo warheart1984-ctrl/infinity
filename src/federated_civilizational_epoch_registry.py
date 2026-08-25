@@ -69,6 +69,12 @@ def save_adopted_charter(
     *,
     runtime_dir: Path,
 ) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in charter.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(charter.get("cen_approval"), sink="federated_epoch_charter", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
     path = adopted_charters_path(runtime_dir=runtime_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = load_adopted_charters(runtime_dir=runtime_dir)

@@ -98,20 +98,30 @@ def classify_transition(
 OPERATIONAL_LAW_FIELDS = frozenset({"cen_approval", "policy_id", "jarvis_receipt_id"})
 
 
-def reduce_law_record(record: dict[str, Any]) -> dict[str, Any]:
+def sink_id_field(sink: str) -> str:
+    """A sink's randomly-assigned primary id is bookkeeping, not law content."""
+    return f"{sink.rsplit('_', 1)[-1]}_id"
+
+
+def reduce_law_record(record: dict[str, Any], *, sink: str | None = None) -> dict[str, Any]:
     """Strip operational fields — what remains is the law content CEN binds."""
-    return {k: v for k, v in record.items() if k not in OPERATIONAL_LAW_FIELDS}
+    excluded = set(OPERATIONAL_LAW_FIELDS)
+    if sink:
+        excluded.add(sink_id_field(sink))
+    return {k: v for k, v in record.items() if k not in excluded}
 
 
-def law_record_digest(record: dict[str, Any]) -> str:
+def law_record_digest(record: dict[str, Any], *, sink: str | None = None) -> str:
     """Deterministic digest of a law-state record (Key Identity Law: as-given)."""
-    canonical = json.dumps(reduce_law_record(record), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    canonical = json.dumps(
+        reduce_law_record(record, sink=sink), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def law_state_transition_id(sink: str, record: dict[str, Any]) -> str:
     """Deterministic transition id so operators can pre-mint VT tokens."""
-    return f"transition:law-state:{sink}:{law_record_digest(record).replace('sha256:', '')[:32]}"
+    return f"transition:law-state:{sink}:{law_record_digest(record, sink=sink).replace('sha256:', '')[:32]}"
 
 
 def gate_law_state_write(
@@ -135,7 +145,7 @@ def gate_law_state_write(
         approval = self.gate_commit(
             transition_id=law_state_transition_id(sink, frozen),
             transition_type=LAW_MUTATION,
-            payload={"sink": sink, "record": reduce_law_record(frozen)},
+            payload={"sink": sink, "record": reduce_law_record(frozen, sink=sink)},
             requested_capabilities=["law:mutate"],
             corridor_id="law-state",
             granted_capabilities=["workflow:execute", "state:commit", "law:mutate"],
@@ -145,9 +155,9 @@ def gate_law_state_write(
     finally:
         self._node = saved_node
     if approval.get("outcome") == "approved":
-        approval["record_digest"] = law_record_digest(frozen)
+        approval["record_digest"] = law_record_digest(frozen, sink=sink)
         # The approval authorizes exactly this reduced law content.
-        approval["frozen_payload"] = {"sink": sink, "record": reduce_law_record(frozen)}
+        approval["frozen_payload"] = {"sink": sink, "record": reduce_law_record(frozen, sink=sink)}
         approval["payload_hash"] = _payload_hash(approval["frozen_payload"])
     return approval
 
@@ -166,7 +176,7 @@ def validate_law_state_approval(
     expected_transition_id = law_state_transition_id(sink, record)
     if approval.get("transition_id") != expected_transition_id:
         return "cen_approval transition id does not bind this record"
-    if approval.get("record_digest") != law_record_digest(_freeze(record)):
+    if approval.get("record_digest") != law_record_digest(_freeze(record), sink=sink):
         return "cen_approval record digest does not bind this record"
     if not approval.get("cen_receipt_hash") or not approval.get("evidence_receipt_id"):
         return "cen_approval missing enforcement/evidence receipts"
@@ -353,6 +363,8 @@ class CenGovernanceBridge:
             "outcome": "denied",
             "reason": reason,
             "committed": False,
+            # Challenge-response: operators re-mint VT against THIS transition.
+            "transition_id": receipt["transitionId"],
             "verdict": decision["verdict"],
             "action": decision["action"],
             "reason_code": decision["reasonCode"],
@@ -404,6 +416,20 @@ def _payload_hash(payload: Any) -> str:
 cen_governance_bridge = CenGovernanceBridge()
 
 
+def mint_vt_token_from_denial(cen_denial: dict[str, Any], *, token_id: str | None = None) -> dict[str, Any]:
+    """Challenge-response: mint a valid VT bound to a refused transition."""
+    from uuid import uuid4
+
+    return issue_authority_token(
+        token_id=token_id or f"vt-{uuid4().hex[:8]}",
+        token_type=LAW_MUTATION_REQUIRED_TOKEN_TYPE,
+        scope=["law:mutate"],
+        transition_id=str(cen_denial.get("transition_id") or ""),
+        expires_at="2999-01-01T00:00:00.000Z",
+    )
+
+
+
 __all__ = [
     "CenGovernanceBridge",
     "OPERATIONAL_LAW_FIELDS",
@@ -414,5 +440,6 @@ __all__ = [
     "cen_governance_bridge",
     "classify_transition",
     "issue_authority_token",
+    "mint_vt_token_from_denial",
     "verify_enforcement_receipt",
 ]

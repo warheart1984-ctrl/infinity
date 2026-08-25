@@ -494,6 +494,7 @@ class AutobiographicalAgencyRuntime:
         operator_approved: bool = False,
         jarvis_authorization: dict[str, Any] | None = None,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "status": 403}
@@ -528,6 +529,22 @@ class AutobiographicalAgencyRuntime:
             "candidate_id": candidate.get("candidate_id"),
             "jarvis_receipt_id": auth.get("jarvis_receipt_id"),
         }
+        from src.cen_governance_bridge import cen_governance_bridge
+
+        cen_approval = cen_governance_bridge.gate_law_state_write(
+            sink="autobiographical_episode",
+            record=episode,
+            actor=str(auth.get("actor") or "operator"),
+            authority_token=authority_token,
+        )
+        if cen_approval.get("outcome") != "approved":
+            return {
+                "outcome": "blocked",
+                "reason": cen_approval.get("reason") or "cen_denied",
+                "cen": cen_approval,
+                "status": 403,
+            }
+        episode["cen_approval"] = cen_approval
         save_adopted_episode(episode, repo_root=self._repo_root)
         self._write_operational_slot(episode)
         self._emit_autobiographical_adoption_ledger(session_id, episode)

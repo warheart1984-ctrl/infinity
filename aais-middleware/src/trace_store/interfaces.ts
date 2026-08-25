@@ -17,6 +17,8 @@ export interface EvidenceRecord {
   requestId: string;
   provider: string;
   justification: string;
+  /** CEN receipt hash when this evidence was admitted through /sovereign/gate */
+  cenReceiptHash?: string;
   metadata?: Record<string, unknown>;
 }
 

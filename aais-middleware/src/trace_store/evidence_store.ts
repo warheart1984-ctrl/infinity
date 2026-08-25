@@ -12,11 +12,15 @@ export class EvidenceStore {
     partial: Omit<EvidenceRecord, "id"> & { id?: string },
     trace?: ReplayTrace,
   ): EvidenceRecord {
+    // cenReceiptHash interleaves the CEN receipt chain into this seal's
+    // digest material when present — evidence then proves WHICH governed
+    // transition admitted it, not merely that something happened.
     const material = JSON.stringify({
       requestId: partial.requestId,
       provider: partial.provider,
       justification: partial.justification,
       metadata: partial.metadata ?? {},
+      ...(partial.cenReceiptHash ? { cenReceiptHash: partial.cenReceiptHash } : {}),
     });
     const digest = createHash("sha3-256").update(material).digest("hex");
     const record: EvidenceRecord = {
@@ -24,6 +28,7 @@ export class EvidenceStore {
       requestId: partial.requestId,
       provider: partial.provider,
       justification: partial.justification,
+      ...(partial.cenReceiptHash ? { cenReceiptHash: partial.cenReceiptHash } : {}),
       metadata: {
         ...(partial.metadata ?? {}),
         sealedAt: new Date().toISOString(),

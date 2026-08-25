@@ -204,11 +204,15 @@ def _run_otem_substrate_reconcile() -> None:
 
 
 app = FastAPI(title="AAIS Workflow Shell", version="11.0.0", lifespan=lifespan)
-
 # Sovereign state: read-only constitutional endpoints (no write path).
 from app.sovereign_router import router as sovereign_router  # noqa: E402
 
+# Sovereign gate: THE single sanctioned write crossing over the CEN boundary.
+# Kept in its own router so the read-only contract above stays verifiable.
+from app.sovereign_gate_router import router as sovereign_gate_router  # noqa: E402
+
 app.include_router(sovereign_router)
+app.include_router(sovereign_gate_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=APP_CORS_ORIGINS,

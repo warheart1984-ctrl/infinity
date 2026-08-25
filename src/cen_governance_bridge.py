@@ -404,6 +404,42 @@ class CenGovernanceBridge:
             )
         return None
 
+    def record_malformed_refusal(
+        self,
+        *,
+        submitted: dict[str, Any] | None = None,
+        reason_detail: str = "request failed sovereign gate schema validation",
+    ) -> dict[str, Any]:
+        """Chain a MALFORMED_TRANSITION refusal receipt for an unadmissible body.
+
+        The envelope carries a non-list requestedCapabilities sentinel by
+        construction, so the node's own shape validator takes its native
+        MALFORMED_TRANSITION branch deterministically: the receipt chains
+        with the correct reason code and a valid hash, and no policy
+        (invariants, tokens, classification) ever runs. The original
+        submission rides in the payload as refusal evidence.
+        """
+        from uuid import uuid4
+
+        safe = submitted if isinstance(submitted, dict) else {}
+        actor = safe.get("actor")
+        envelope = {
+            "transitionId": f"transition:malformed:{uuid4().hex[:8]}",
+            "transitionType": "runtime_action",
+            "payload": {
+                "malformed_request": safe,
+                "reason_detail": str(reason_detail)[:180],
+            },
+            "requestedCapabilities": "__malformed_not_a_list__",
+            "context": {
+                "actor": (
+                    actor if isinstance(actor, str) and actor.strip() else "unauthenticated"
+                ),
+            },
+        }
+        result = self._node.execute(envelope)
+        return self._denial(result, reason="cen_denied")
+
     def _execute_refusal(self, **fields: Any) -> dict[str, Any]:
         """Force a DENY through the node so refusal receipts enter the chain."""
         captured: dict[str, Any] = {}

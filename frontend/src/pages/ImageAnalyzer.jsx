@@ -246,7 +246,7 @@ function ImageAnalyzer() {
                 rows="4"
                 value={operatorContext}
                 onChange={(event) => setOperatorContext(event.target.value)}
-                placeholder="Optional: tell Nova what to look for, like 'debug the chat route in api.py' or 'this mobile screen looks broken.'"
+                placeholder="Optional: tell Jarvis what to look for, like 'debug the chat route in api.py' or 'this mobile screen looks broken.'"
               />
               <div className="context-note">
                 Jarvis will automatically pull OCR and UI clues when this assist mode is on.
@@ -445,7 +445,7 @@ function ImageAnalyzer() {
                       className="inline-card-action"
                       onClick={handleOpenInJarvis}
                     >
-                      Open in Nova
+                      Open in Console
                     </button>
                   </div>
                   {!!analysis.operator_assist.debug_signals?.length && (

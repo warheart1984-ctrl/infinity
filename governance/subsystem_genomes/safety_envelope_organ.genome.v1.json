@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 no write path from envelope organ",
+      "Read-only v1 — no write path from envelope organ",
       "halt_required blocks optimistic execution when wired to bridge",
       "Thresholds align with SWARM_LAW no-improvisation doctrine",
       "Envelope threshold mutations require MP-X and post-apply alt7-governed-gate"
@@ -71,7 +71,7 @@
   "activation": {
     "order": 1,
     "batch_id": "alt5-summon-wave-2026-06",
-    "notes": "Alt-5 wave 1 \u2014 foundational guard"
+    "notes": "Alt-5 wave 1 — foundational guard"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
@@ -82,7 +82,7 @@
         "proposal_id": "MP-SE-001",
         "status": "promoted",
         "schema_delta_ref": "schemas/deltas/safety_envelope_organ_MP-SE-001.json",
-        "notes": "backup: .runtime\\governance\\mutation_backups\\safety_envelope_organ_20260603T001120Z.genome.v1.json"
+        "notes": "backup: .runtime/governance/mutation_backups/safety_envelope_organ_20260603T001120Z.genome.v1.json"
       }
     ]
   },

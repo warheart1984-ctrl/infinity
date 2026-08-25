@@ -7,12 +7,12 @@ import './Navbar.css';
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const isHomeRoute = location.pathname === '/' || location.pathname.startsWith('/nova');
+  const isHomeRoute = location.pathname.startsWith('/jarvis');
   const isJarvisRoute =
     location.pathname.startsWith('/jarvis')
     || location.pathname.startsWith('/operator')
     || location.pathname.startsWith('/platform');
-  const surface = isJarvisRoute ? 'jarvis' : 'nova';
+  const surface = 'jarvis';
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -28,7 +28,7 @@ function Navbar() {
         ...(isAmplifyAuthEnabled() ? [{ type: 'route', to: '/auth/sign-in', label: 'Sign in' }] : []),
         { type: 'route', to: '/jarvis/repo-manager', label: 'Repo Manager' },
         { type: 'route', to: '/memory', label: 'Memory Bank' },
-  { type: 'route', to: '/', label: 'Small Nova' },
+  { type: 'route', to: '/jarvis', label: 'Jarvis' },
       ]
     : isHomeRoute
     ? [
@@ -42,10 +42,17 @@ function Navbar() {
         { type: 'route', to: '/', label: 'Home' },
         { type: 'route', to: '/jarvis', label: 'Console' },
         { type: 'route', to: '/memory', label: 'Memory Bank' },
+        { type: 'route', to: '/image-generator', label: 'Images' },
+        { type: 'route', to: '/text-generator', label: 'Studio' },
+        { type: 'route', to: '/audio-processor', label: 'Audio' },
+        { type: 'route', to: '/batch-processor', label: 'Batch' },
+        { type: 'route', to: '/workflows', label: 'Workflows' },
+        { type: 'route', to: '/history', label: 'History' },
+        { type: 'route', to: '/settings', label: 'Settings' },
       ];
   const brand = isJarvisRoute
     ? { mark: 'JARVIS', subtitle: 'Operator Console', to: '/jarvis' }
-  : { mark: 'SMALL NOVA', subtitle: 'Companion Surface', to: '/' };
+  : { mark: 'JARVIS', subtitle: 'Operator Surface', to: '/jarvis' };
 
   return (
     <nav className={`navbar navbar--${surface}`}>

@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 organ does not install memory board slots",
+      "Read-only v1 — organ does not install memory board slots",
       "runtime_id frozen to cognitive.memory",
       "Distinct from jarvis_memory_board governance fabric"
     ]
@@ -62,7 +62,7 @@
   "activation": {
     "order": 2,
     "batch_id": "alt5-summon-wave-2-2026-06",
-    "notes": "Alt-5 wave 2 \u2014 hippocampus runtime lane"
+    "notes": "Alt-5 wave 2 — hippocampus runtime lane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

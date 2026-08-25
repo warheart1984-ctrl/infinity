@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 witness organ does not mutate routing",
+      "Read-only v1 — witness organ does not mutate routing",
       "module_id frozen to AAIS-CW-01",
       "Observe-only drift signals"
     ]
@@ -65,7 +65,7 @@
   "activation": {
     "order": 1,
     "batch_id": "alt8-summon-wave-2026-06",
-    "notes": "Alt-8 wave 1 \u2014 pipeline witness plane"
+    "notes": "Alt-8 wave 1 — pipeline witness plane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

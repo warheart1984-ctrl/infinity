@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from typing import Any
 import uuid
 
@@ -3325,9 +3326,22 @@ class JarvisOperator:
             }
         )
 
+    _ws_profile_cache: dict = {}
+
     def detect_workspace_profile(self, path_prefix: str | None = None):
-        """Expose the evolving project profile detector."""
-        return self._sync_evolving_workspace().detect_project_profile(path_prefix=path_prefix)
+        """Expose the evolving project profile detector (TTL-cached: nx fix).
+
+        Underlying scan walks the entire workspace synchronously; without
+        caching this stalled code-flavored turns for seconds.
+        """
+        key = str(path_prefix or "")
+        now = time.time()
+        cached = self._ws_profile_cache.get(key)
+        if cached and now - cached[0] < 300:
+            return cached[1]
+        result = self._sync_evolving_workspace().detect_project_profile(path_prefix=path_prefix)
+        self._ws_profile_cache[key] = (now, result)
+        return result
 
     def list_workspace_symbols(self, query: str | None = None, limit: int = 16, path_prefix: str | None = None):
         """Expose evolving symbol discovery through the shared operator."""

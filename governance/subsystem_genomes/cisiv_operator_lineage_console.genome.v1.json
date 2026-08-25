@@ -15,8 +15,8 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only in v1 \u2014 graph observes runtime envelopes; no write path from UI",
-      "Append-only DAG per mission \u2014 nodes never deleted or mutated in place",
+      "Read-only in v1 — graph observes runtime envelopes; no write path from UI",
+      "Append-only DAG per mission — nodes never deleted or mutated in place",
       "Each node carries cisiv_stage at emission time and claim_label where applicable",
       "Missing mission yields empty graph with explicit claim_label asserted",
       "Drift failure surfaces as visible regression marker without blocking live chat"

@@ -10,7 +10,7 @@ function ImageGenerator() {
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState('');
   const [statusNote, setStatusNote] = useState(
-    'The generator path is wired, but your laptop preset still keeps image generation disabled by default until you choose to enable it.'
+    'SD-Turbo on your RX 580 (Vulkan) is ready. Describe an image and render.'
   );
 
   const handleGenerate = async () => {
@@ -23,7 +23,7 @@ function ImageGenerator() {
     try {
       const response = await apiPost('/api/image/generate', {
         prompt,
-        num_inference_steps: steps
+        prompt_size: '512x512', num_inference_steps: steps
       });
       setGeneratedImage(`data:image/png;base64,${response.data.image}`);
       setStatusNote('Image generation is active for this run.');
@@ -31,7 +31,7 @@ function ImageGenerator() {
         type: 'image',
         prompt,
         output: 'Generated image preview',
-        model: 'AAIS local API',
+        model: 'SD-Turbo Vulkan',
       });
       toast.success('Image generated successfully!');
     } catch (error) {

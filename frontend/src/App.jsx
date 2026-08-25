@@ -16,7 +16,6 @@ const routerBasename = (() => {
 
 const JarvisPage = lazy(() => import('./pages/JarvisPage'));
 const RepoManager = lazy(() => import('./pages/RepoManager'));
-const NovaPage = lazy(() => import('./pages/NovaPage'));
 const MemoryBank = lazy(() => import('./pages/MemoryBank'));
 const TextGenerator = lazy(() => import('./pages/TextGenerator'));
 const ImageAnalyzer = lazy(() => import('./pages/ImageAnalyzer'));
@@ -61,18 +60,17 @@ function RouteFallback() {
 
 function AppShell() {
   const location = useLocation();
-  const isNovaRoute = location.pathname === '/' || location.pathname.startsWith('/nova');
   const isJarvisRoute = location.pathname.startsWith('/jarvis');
 
   return (
-    <div className={`App ${isNovaRoute ? 'App--nova' : ''} ${isJarvisRoute ? 'App--jarvis' : ''}`}>
+    <div className={`App ${isJarvisRoute ? 'App--jarvis' : ''}`}>
       <Navbar />
-      <main className={`main-content ${isNovaRoute ? 'main-content--nova' : ''} ${isJarvisRoute ? 'main-content--jarvis' : ''}`}>
+      <main className={`main-content ${isJarvisRoute ? 'main-content--jarvis' : ''}`}>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<NovaPage />} />
-            <Route path="/nova" element={<NovaPage />} />
-            <Route path="/nova-the-north-star" element={<NovaPage />} />
+            <Route path="/" element={<Navigate to="/jarvis" replace />} />
+            <Route path="/nova" element={<Navigate to="/jarvis" replace />} />
+            <Route path="/nova-the-north-star" element={<Navigate to="/jarvis" replace />} />
             <Route path="/jarvis" element={<JarvisPage />} />
             <Route path="/jarvis/repo-manager" element={<RepoManager />} />
             <Route path="/repo-manager" element={<Navigate to="/jarvis/repo-manager" replace />} />

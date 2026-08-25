@@ -12,7 +12,6 @@ os.environ.setdefault("AAIS_GENOME_BOOT", "warn")
 
 from src.federated_civilizational_epoch_registry import load_adopted_charters
 from src.federated_civilizational_epoch_runtime import FederatedCivilizationalEpochRuntime
-from src.governed_civilization_registry import save_adopted_civilization
 from src.jarvis_federated_epoch_authority import authorize_federated_epoch_overlay_admission
 from tests.fce_test_helpers import open_amendable_epoch_window
 
@@ -36,17 +35,25 @@ class FederatedCivilizationalEpochAdoptTests(unittest.TestCase):
             gov / "operator_civilization_registry.v1.json",
         )
         open_amendable_epoch_window(gov / "operator_federated_epoch_registry.v1.json")
+        from src.governed_civilization_registry import save_adopted_civilization
+        from tests.cen_test_helpers import cen_approved
+
         save_adopted_civilization(
-            {
-                "civilization_id": "gcv_seed001",
-                "summary": "Seed governed civilization for FCE upstream",
-                "admitted_charter_ids": ["charter_a", "charter_b"],
-            },
+            cen_approved(
+                "governed_civilization",
+                {
+                    "civilization_id": "gcv_seed001",
+                    "summary": "Seed governed civilization for FCE upstream",
+                    "admitted_charter_ids": ["charter_a", "charter_b"],
+                },
+            ),
             repo_root=root,
         )
         self.runtime = FederatedCivilizationalEpochRuntime(
             runtime_dir=Path(self._tmpdir.name), repo_root=root
         )
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.repo_root = root
         candidates = self.runtime.surface_epoch_candidates()
         self.assertTrue(candidates, "expected at least one epoch candidate")

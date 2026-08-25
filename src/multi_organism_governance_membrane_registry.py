@@ -25,6 +25,21 @@ def adopted_policies(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_policy(policy: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    """CEN-dominated law state sink.
+
+    The authoritative operator_membrane_registry.v1.json cannot be written
+    without a valid CEN approval envelope bound to this exact record. Direct
+    callers (maintenance scripts, recovery tools, migrations, debug endpoints)
+    are refused here at the sink — dominance over alternate write paths.
+    """
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in policy.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(
+        policy.get("cen_approval"), sink="operator_membrane_policy", record=record
+    )
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_membrane_registry.v1.json"
     doc = load_membrane_registry(repo_root=root)

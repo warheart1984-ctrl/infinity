@@ -84,7 +84,7 @@ def from_lirl(stored: dict[str, Any], *, endpoint: str = "http://127.0.0.1:7801"
         "intent": {
             "record_id": stored.get("intentId") or "",
             "kind": "action",
-            "text_digest": _digest_of(stored.get("subjectHash")),
+            "text_digest": _digest_of(stored.get("subjectHash") or ""),
             "actor_id": actor_id,
             "actor_class": actor_class,
         },
@@ -107,8 +107,8 @@ def from_lirl(stored: dict[str, Any], *, endpoint: str = "http://127.0.0.1:7801"
         },
         "evidence": {
             "claim_label": stored.get("claimLabel") or "",
-            "request_digest": _digest_of(stored.get("subjectHash")),
-            "response_digest": _digest_of(stored.get("evidenceRefs")),
+            "request_digest": _digest_of(stored.get("subjectHash") or ""),
+            "response_digest": _digest_of(stored.get("evidenceRefs") or []),
             "timing": {"started_utc": "", "finished_utc": stored.get("issuedAt") or "", "duration_ms": 0},
             "constraints_applied": {"allowlist_enforced": True},
             "verification_result": [

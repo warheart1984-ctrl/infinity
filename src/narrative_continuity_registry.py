@@ -25,6 +25,13 @@ def adopted_beats(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_beat(beat: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in beat.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(beat.get("cen_approval"), sink="narrative_beat", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
+
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_narrative_registry.v1.json"
     doc = load_narrative_registry(repo_root=root)

@@ -33,6 +33,8 @@ class MultiBeingContinuityAdoptTests(unittest.TestCase):
             runtime_dir=Path(self._tmpdir.name),
             repo_root=root,
         )
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.client = api.app.test_client()
         self.candidate = {
             "candidate_id": "mcand_test001",

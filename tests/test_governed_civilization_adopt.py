@@ -28,6 +28,8 @@ class GovernedCivilizationAdoptTests(unittest.TestCase):
             gov / "operator_civilization_registry.v1.json",
         )
         self.runtime = GovernedCivilizationRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "cvcand_test001",
             "summary": "Governed civilization binding multiple ecosystem charters",

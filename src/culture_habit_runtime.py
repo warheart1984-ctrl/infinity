@@ -263,6 +263,7 @@ class CultureHabitRuntime:
         *,
         operator_approved: bool = False,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "status": 403}
@@ -284,6 +285,22 @@ class CultureHabitRuntime:
             "hcc_class": "HCC-2",
             "candidate_id": candidate.get("candidate_id"),
         }
+        from src.cen_governance_bridge import cen_governance_bridge
+
+        cen_approval = cen_governance_bridge.gate_law_state_write(
+            sink="culture_habit",
+            record=habit,
+            actor="operator",
+            authority_token=authority_token,
+        )
+        if cen_approval.get("outcome") != "approved":
+            return {
+                "outcome": "blocked",
+                "reason": cen_approval.get("reason") or "cen_denied",
+                "cen": cen_approval,
+                "status": 403,
+            }
+        habit["cen_approval"] = cen_approval
         save_adopted_habit(habit, repo_root=self._repo_root)
         self._write_preference_slot(habit)
         self._emit_habit_adoption_ledger(session_id, habit)

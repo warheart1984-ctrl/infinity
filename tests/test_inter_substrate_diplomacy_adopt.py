@@ -35,6 +35,8 @@ class InterSubstrateDiplomacyAdoptTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.runtime = InterSubstrateDiplomacyRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "acand_test001",
             "accord_kind": "composite",

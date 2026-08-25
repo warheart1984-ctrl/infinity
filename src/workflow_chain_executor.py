@@ -51,6 +51,43 @@ class WorkflowChainExecutor:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "workflow_id": workflow_id}
         run_id = f"wfr_{uuid4().hex[:12]}"
+
+        # CEN admission boundary: every non-dry commit passes the node first.
+        # Dry runs never make state authoritative, so they stay ungated.
+        frozen_args = dict(args or {})
+        cen_approval: dict[str, Any] | None = None
+        if not dry_run:
+            from src.cen_governance_bridge import (
+                classify_transition,
+                cen_governance_bridge,
+            )
+
+            transition_type = classify_transition(bundle=bundle, args=args)
+            cen_approval = cen_governance_bridge.gate_commit(
+                transition_id=f"transition:{workflow_id}:{run_id}",
+                transition_type=transition_type,
+                payload={
+                    "workflow_id": workflow_id,
+                    "args": frozen_args,
+                    "step_count": len(list(bundle.get("steps") or [])),
+                },
+                requested_capabilities=["workflow:execute"],
+                corridor_id="workflow-chain",
+                granted_capabilities=["workflow:execute", "state:commit"],
+                actor=str((args or {}).get("operator_id") or "operator"),
+                authority_token=(args or {}).get("authority_token"),
+            )
+            if cen_approval.get("outcome") != "approved":
+                return {
+                    "outcome": "blocked",
+                    "reason": "cen_denied",
+                    "cen": cen_approval,
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                }
+            # Commit the approved object, not the caller-held reference.
+            frozen_args = dict(cen_approval["frozen_payload"].get("args") or {})
+
         steps_out: list[dict[str, Any]] = []
         for index, step in enumerate(list(bundle.get("steps") or [])):
             pattern = str(step.get("plug_pattern") or "")
@@ -59,7 +96,7 @@ class WorkflowChainExecutor:
                 plug_id = pattern.rstrip(".*")
             exec_result = plug_adapter_runtime.execute_plug(
                 plug_id,
-                args={"workflow_id": workflow_id, "step_index": index, **dict(args or {})},
+                args={"workflow_id": workflow_id, "step_index": index, **dict(frozen_args)},
                 dry_run=dry_run,
                 operator_approved=operator_approved,
             )

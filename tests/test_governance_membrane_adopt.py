@@ -12,7 +12,11 @@ os.environ.setdefault("AAIS_GENOME_BOOT", "warn")
 
 from src.jarvis_membrane_authority import authorize_membrane_slot_admission
 from src.multi_organism_governance_membrane_registry import adopted_policies
-from src.multi_organism_governance_membrane_runtime import MultiOrganismGovernanceMembraneRuntime
+from src.multi_organism_governance_membrane_runtime import (
+    MultiOrganismGovernanceMembraneRuntime,
+    membrane_policy_record,
+)
+from tests.cen_test_helpers import mint_vt_token
 
 
 class GovernanceMembraneAdoptTests(unittest.TestCase):
@@ -48,15 +52,34 @@ class GovernanceMembraneAdoptTests(unittest.TestCase):
 
     def test_adopt_with_dual_gate(self):
         auth = authorize_membrane_slot_admission(self.candidate)
+        token = mint_vt_token("operator_membrane_policy", membrane_policy_record(self.candidate))
+        result = self.runtime.adopt_membrane_policy(
+            self.candidate,
+            operator_approved=True,
+            jarvis_authorization=auth,
+            session_id="mgm-test",
+            authority_token=token,
+        )
+        self.assertEqual(result.get("outcome"), "adopted")
+        self.assertEqual(len(adopted_policies(repo_root=Path(self._repo_tmp.name))), 1)
+        self.assertTrue(self.runtime._overlay_path.is_file())
+        # The adopted policy carries its CEN approval envelope in the registry.
+        stored = adopted_policies(repo_root=Path(self._repo_tmp.name))[0]
+        self.assertEqual(stored["cen_approval"]["outcome"], "approved")
+
+    def test_adopt_blocked_without_vt_token(self):
+        """INV-021: law mutations without a VT token are denied before commit."""
+        auth = authorize_membrane_slot_admission(self.candidate)
         result = self.runtime.adopt_membrane_policy(
             self.candidate,
             operator_approved=True,
             jarvis_authorization=auth,
             session_id="mgm-test",
         )
-        self.assertEqual(result.get("outcome"), "adopted")
-        self.assertEqual(len(adopted_policies(repo_root=Path(self._repo_tmp.name))), 1)
-        self.assertTrue(self.runtime._overlay_path.is_file())
+        self.assertEqual(result.get("outcome"), "blocked")
+        self.assertEqual(result.get("reason"), "cen_vt_required")
+        self.assertIn("VT", result["cen"]["reason_detail"])
+        self.assertEqual(len(adopted_policies(repo_root=Path(self._repo_tmp.name))), 0)
 
     def test_imxp_wrapper_allows_without_policy(self):
         from src.imxp_governance_wrapper import check_imxp_outbound_permeability

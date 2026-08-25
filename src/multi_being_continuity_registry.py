@@ -25,6 +25,13 @@ def adopted_pacts(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_pact(pact: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in pact.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(pact.get("cen_approval"), sink="multi_being_pact", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
+
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_multi_being_registry.v1.json"
     doc = load_multi_being_registry(repo_root=root)

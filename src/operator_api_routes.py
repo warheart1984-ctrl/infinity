@@ -1034,6 +1034,7 @@ def register_operator_api_routes(app: Flask) -> None:
             operator_approved=True,
             jarvis_authorization=auth,
             session_id=session_id,
+            authority_token=body.get("authority_token"),
         )
         status = 200 if result.get("outcome") == "adopted" else 400
         return jsonify({"adoption": result, **result}), status

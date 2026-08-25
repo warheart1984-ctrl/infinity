@@ -244,6 +244,7 @@ class ConstitutionalEcosystemRuntime:
         operator_approved: bool = False,
         jarvis_authorization: dict[str, Any] | None = None,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "status": 403}
@@ -275,6 +276,22 @@ class ConstitutionalEcosystemRuntime:
             "candidate_id": candidate.get("candidate_id"),
             "jarvis_receipt_id": auth.get("jarvis_receipt_id"),
         }
+        from src.cen_governance_bridge import cen_governance_bridge
+
+        cen_approval = cen_governance_bridge.gate_law_state_write(
+            sink="constitutional_ecosystem_charter",
+            record=charter,
+            actor=str(auth.get("actor") or "operator"),
+            authority_token=authority_token,
+        )
+        if cen_approval.get("outcome") != "approved":
+            return {
+                "outcome": "blocked",
+                "reason": cen_approval.get("reason") or "cen_denied",
+                "cen": cen_approval,
+                "status": 403,
+            }
+        charter["cen_approval"] = cen_approval
         save_adopted_charter(charter, repo_root=self._repo_root)
         self._write_ecosystem_slot(charter)
         self._emit_ecosystem_adoption_ledger(session_id, charter)

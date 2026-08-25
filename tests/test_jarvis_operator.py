@@ -1440,8 +1440,8 @@ class TestJarvisOperator(unittest.TestCase):
             results = operator.workspace_tools.search("build workspace context", limit=10)["results"]
             paths = [result["relative_path"] for result in results]
 
-            self.assertTrue(any(path.endswith("src\\jarvis_operator.py") for path in paths))
-            self.assertFalse(any("training\\out" in path for path in paths))
+            self.assertTrue(any(path.endswith("src/jarvis_operator.py") for path in paths))
+            self.assertFalse(any("training/out" in path for path in paths))
 
     def test_build_visual_operator_assist_maps_code_screenshot_to_workspace_and_pytest(self):
         """Screenshot-derived debugging clues should map back to AAIS-main and a safe test action."""

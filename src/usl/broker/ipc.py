@@ -21,7 +21,7 @@ class BrokerMessage:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), sort_keys=True)
+        return json.dumps(asdict(self), sort_keys=True, default=str)
 
     @classmethod
     def from_json(cls, raw: str | bytes) -> BrokerMessage:

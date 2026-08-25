@@ -10742,6 +10742,9 @@ def evaluate_reasoning_exchange_packet():
     runtime_context = request.args.get("runtime_context") or "live_runtime"
     try:
         raw_packet = request.get_json(silent=True)
+        # Fail fast on structurally malformed packets before any governance
+        # evaluation; only well-formed packets reach the cognitive bridge.
+        normalized_packet = normalize_reasoning_exchange_packet(raw_packet)
         bridge_result = _route_reasoning_ingress_to_bridge(raw_packet, runtime_context=runtime_context)
         if bridge_result.get("decision") == "BLOCK":
             return jsonify(
@@ -10752,7 +10755,6 @@ def evaluate_reasoning_exchange_packet():
                     "immune_system": protocol.immune_controller.snapshot(limit_events=6, limit_incidents=3),
                 }
             ), 403
-        normalized_packet = normalize_reasoning_exchange_packet(raw_packet)
         if normalized_packet["version"] != REASONING_EXCHANGE_PROTOCOL_VERSION:
             payload = build_reasoning_exchange_reject_response(
                 normalized_packet,
@@ -10829,10 +10831,19 @@ def evaluate_reasoning_exchange_packet():
         payload = {
             "status": "INVALID",
             "reason": str(e),
-            "cognitive_bridge": _route_reasoning_ingress_to_bridge(
-                request.get_json(silent=True),
-                runtime_context=runtime_context,
-            ),
+            # The cognitive bridge never evaluated this ingress: structural
+            # validation failed first, so report a non-blocking receipt instead
+            # of re-running governance over malformed content.
+            "cognitive_bridge": {
+                "bridge_id": "aais.cognitive_bridge",
+                "version": "0.1",
+                "decision": "ALLOW",
+                "status": "not_evaluated",
+                "summary": "Cognitive Bridge was not evaluated because the packet failed structural validation.",
+                "execution_allowed": False,
+                "reason_codes": ["invalid_packet_structure"],
+                "notes": ["structural_validation_precedes_governance"],
+            },
             "immune_update": protocol.observe_boundary_signal(
                 signal_type="invalid_packet_structure",
                 severity="medium",

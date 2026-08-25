@@ -1,6 +1,8 @@
 """Tests for the canonical Jarvis protocol layer."""
 
+import os
 import unittest
+from unittest.mock import patch
 
 from src.conversation_memory import ConversationSession
 from src.jarvis_modular import (
@@ -42,6 +44,15 @@ from src.reasoning_types import ReasoningFactor
 
 class TestJarvisProtocol(unittest.TestCase):
     """Verify the explicit Jarvis language used across AAIS."""
+
+    def setUp(self):
+        # These tests pin the modular channel-mapping contract itself; the
+        # read-only governance coherence projection is exercised separately.
+        self._coherence_projection_patcher = patch.dict(
+            os.environ, {"AAIS_GOVERNANCE_COHERENCE_PROJECTION": "0"}
+        )
+        self._coherence_projection_patcher.start()
+        self.addCleanup(self._coherence_projection_patcher.stop)
 
     def test_protocol_spec_exposes_stable_contract(self):
         """The protocol spec should describe the shared Jarvis message language."""

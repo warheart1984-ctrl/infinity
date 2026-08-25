@@ -4,7 +4,21 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from src.governed_direct_pipeline import build_governed_turn_pipeline
+import pytest
+
+from src.governed_direct_pipeline import (
+    build_governed_turn_pipeline,
+    clear_governed_pipeline_cache,
+)
+
+
+@pytest.fixture(autouse=True)
+def _clean_governed_pipeline_cache():
+    # The governed pipeline caches skeletons by turn key; coherence state is
+    # external, so cached ALLOW traces must never leak between these tests.
+    clear_governed_pipeline_cache()
+    yield
+    clear_governed_pipeline_cache()
 
 
 def _healthy_coherence_status() -> dict:

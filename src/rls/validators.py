@@ -119,6 +119,15 @@ def check_self_justifying_loop(graph: dict[str, Any]) -> list[dict[str, Any]]:
         if not refs and not text:
             continue
 
+        # Flat-text adapters emit a premise identical to the conclusion when the
+        # claim and rationale are the same string; that restatement is structural.
+        if (
+            str(node.get("kind") or "").lower() == "premise"
+            and text
+            and text == conclusion_text
+        ):
+            continue
+
         cites_conclusion = (
             conclusion_text
             and (

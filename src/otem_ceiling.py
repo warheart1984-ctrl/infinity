@@ -637,8 +637,23 @@ class OtemCeilingController:
             "pending_decision": snap.get("pending_decision"),
         }
 
+    def reset(self) -> dict[str, Any]:
+        """Restore default ceiling posture and clear persisted containment state."""
+        with self._lock:
+            self._state = default_rules_snapshot()
+        try:
+            self._persist()
+        except OSError:
+            pass
+        return self.snapshot()
+
 
 otem_ceiling = OtemCeilingController()
+
+
+def reset_otem_ceiling() -> dict[str, Any]:
+    """Clear the process-wide ceiling singleton (test isolation only)."""
+    return otem_ceiling.reset()
 
 
 def max_action_class_for_band(band: str, *, ceiling_active: bool = False) -> str:

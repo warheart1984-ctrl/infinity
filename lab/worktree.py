@@ -109,6 +109,12 @@ def create_workspace(
             ["worktree", "add", "--detach", str(workspace_path), ref],
             cwd=source_root,
         )
+        if proc.returncode != 0 and "already registered" in (proc.stderr or ""):
+            _run_git(["worktree", "prune"], cwd=source_root)
+            proc = _run_git(
+                ["worktree", "add", "--detach", str(workspace_path), ref],
+                cwd=source_root,
+            )
         if proc.returncode != 0:
             raise WorktreeError(
                 f"git worktree add failed: {(proc.stderr or proc.stdout).strip()}"

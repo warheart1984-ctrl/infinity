@@ -148,13 +148,30 @@ class TestAAISULSubstrate(unittest.TestCase):
         self.assertIn("ul_substrate", wrapped)
         self.assertIn("tool_results", wrapped["ul_trace"]["sections"])
 
+    def _require_command_substrate(self):
+        """Skip when the optional external ARIS ul_substrate module is absent."""
+        try:
+            import importlib.util
+            from src.aais_ul_substrate import _ensure_aris_path
+
+            _ensure_aris_path()
+            if importlib.util.find_spec("ul_substrate") is None:
+                self.skipTest(
+                    "external aris ul_substrate module not present; "
+                    "governed command dispatch requires the ARIS checkout"
+                )
+        except ImportError:
+            self.skipTest("src.aais_ul_substrate helper unavailable")
+
     def test_execute_governed_command_allowed(self):
+        self._require_command_substrate()
         substrate = AAISULSubstrate(registry=build_default_registry())
         result = substrate.execute_governed_command("cat jumps x2")
         self.assertTrue(result["allowed"])
         self.assertIn("ul_substrate", result)
 
     def test_execute_governed_command_blocked(self):
+        self._require_command_substrate()
         substrate = AAISULSubstrate(registry=build_default_registry())
         result = substrate.execute_governed_command("cat delete_repo x1")
         self.assertFalse(result["allowed"])

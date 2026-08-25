@@ -64,6 +64,7 @@ class OtemTemporalBridgeIntegrationTests(unittest.TestCase):
                 "workflow_template_id": "temporal-test",
                 "template_name": "Temporal Test",
                 "rationale": "Exercise temporal bridge wiring",
+                "evidence": ["log:jarvis-operator-turn", "odl:daily-brief-handoff"],
                 "proposal_only": True,
             },
         }

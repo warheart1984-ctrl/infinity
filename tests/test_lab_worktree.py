@@ -78,6 +78,7 @@ def test_init_project_from_fixture(bare_fixture_repo: Path, tmp_path: Path) -> N
 def test_init_runtime_inside_repo_uses_worktree(tmp_path: Path) -> None:
     if not (REPO_ROOT / ".git").exists():
         pytest.skip("parent repo is not a git checkout")
+    _git(["worktree", "prune"], cwd=REPO_ROOT)
     runtime = REPO_ROOT / ".runtime" / "lab" / f"pytest-{tmp_path.name}"
     project_id = "infi-bench-wt"
     try:

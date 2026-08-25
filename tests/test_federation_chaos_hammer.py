@@ -10,7 +10,7 @@ from pathlib import Path
 
 def test_civilizational_get_routes_defined():
     mod = importlib.import_module("tools.stress.federation_chaos_hammer")
-    assert len(mod.CIVILIZATIONAL_GET_ROUTES) == 8
+    assert len(mod.CIVILIZATIONAL_GET_ROUTES) == 12
     assert all(p.startswith("/api/operator/") for p in mod.CIVILIZATIONAL_GET_ROUTES)
 
 
@@ -22,6 +22,7 @@ def test_civilizational_subsystems_cover_four_arcs():
         "diplomacy",
         "constitutional_evolution",
         "governed_civilization",
+        "federated_epoch",
     }
 
 

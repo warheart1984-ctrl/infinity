@@ -58,6 +58,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!cog-os/forge/scripts/lib/
 lib64/
 parts/
 sdist/

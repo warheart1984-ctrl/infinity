@@ -372,6 +372,12 @@ def build_workflow_handoff(
         "rationale": (
             f"This task matches the {template_name} workflow shape and is better treated as an operator-confirmed workflow handoff than a one-turn reply."
         ),
+        # Machine-derived proposals must cite their provenance so governed-band
+        # RLS evaluation has structured evidence instead of an automatic downgrade.
+        "evidence": [
+            "log:otem_template_match",
+            f"external:workflow-template/{best_template.get('id')}",
+        ],
         "ui_affordance": {
             "label": "Create workflow from OTEM suggestion",
             "path": "/workflows/templates",

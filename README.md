@@ -384,7 +384,7 @@ python -m tools.ul.smoke --lineage-graph tools/ul/fixtures/lineage_multi_hop.jso
 - Optional: **Node.js 18+** — only to rebuild the frontend (`frontend/`)
 - Optional: API keys in `.env` for frontier models (mock preset needs none)
 
-### Install and start (automated)
+### Initialization steps
 
 Use the bootstrap script (recommended):
 

@@ -10,7 +10,7 @@ from typing import Any
 from src.authority_mask_lowering import lower_authority_mask
 from src.governance_ir import GOVERNANCE_IR_VERSION
 from src.governance_taxonomy import TAXONOMY_SCHEMA_ID
-from src.invariant_engine import InvariantEngine
+from src.invariant_engine import BRIDGE_INVARIANT_PACKET_TYPES, InvariantEngine
 from src.training_view_spec import build_training_view_spec
 
 
@@ -326,9 +326,50 @@ def run_admission_checks(
     allows = True
     for validator in admission_validators:
         if validator == "bridge_invariant":
+            packet_type = str(
+                normalized_packet.get("packet_type")
+                or governance_packet.get("packet_type")
+                or ""
+            ).strip().lower()
+            if packet_type and packet_type not in BRIDGE_INVARIANT_PACKET_TYPES:
+                # The bridge invariant guard is scoped to governed bridge
+                # packets; other admission surfaces (e.g. binary lift) are
+                # enforced by their own validators instead of failing here.
+                results.append(
+                    {
+                        "validator": validator,
+                        "status": "skipped",
+                        "allows": True,
+                        "details": (
+                            f"bridge invariant out of scope for packet_type {packet_type}"
+                        ),
+                    }
+                )
+                continue
             outcome = InvariantEngine.validate_bridge_packet(normalized_packet, governance_packet)
             results.append({"validator": validator, **outcome})
             allows = allows and bool(outcome.get("allows"))
+        elif validator == "lift_binary_invariant":
+            blocked = [
+                str(inv.get("invariant_id") or "unknown")
+                for inv in (governance_packet.get("lift_invariants") or [])
+                if isinstance(inv, dict) and str(inv.get("severity") or "") == "block"
+            ]
+            allows_lift = len(blocked) == 0
+            results.append(
+                {
+                    "validator": validator,
+                    "status": "pass" if allows_lift else "fail",
+                    "allows": allows_lift,
+                    "details": (
+                        "no block-severity lift invariants"
+                        if allows_lift
+                        else f"blocked invariants: {', '.join(blocked)}"
+                    ),
+                    "blocked_invariants": blocked,
+                }
+            )
+            allows = allows and allows_lift
         elif validator == "chat_turn_contract":
             results.append(
                 {
@@ -346,6 +387,32 @@ def run_admission_checks(
                     "allows": True,
                 }
             )
+    if (
+        "lift_binary_invariant" not in admission_validators
+        and isinstance(governance_packet.get("lift_invariants"), list)
+    ):
+        # Binary-lift admissions must always enforce block-severity lift
+        # invariants, mirroring the guest-safe admission runner.
+        blocked = [
+            str(inv.get("invariant_id") or "unknown")
+            for inv in governance_packet.get("lift_invariants") or []
+            if isinstance(inv, dict) and str(inv.get("severity") or "") == "block"
+        ]
+        allows_lift = len(blocked) == 0
+        results.append(
+            {
+                "validator": "lift_binary_invariant",
+                "status": "pass" if allows_lift else "fail",
+                "allows": allows_lift,
+                "details": (
+                    "no block-severity lift invariants"
+                    if allows_lift
+                    else f"blocked invariants: {', '.join(blocked)}"
+                ),
+                "blocked_invariants": blocked,
+            }
+        )
+        allows = allows and allows_lift
     return {
         "module_id": "aais.invariant_compiler.admission",
         "status": "pass" if allows else "fail",

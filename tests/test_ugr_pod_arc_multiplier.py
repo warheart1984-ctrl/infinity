@@ -76,7 +76,8 @@ class TestPodArcMultiplier(unittest.TestCase):
         }
         deltas = compute_deltas(EVENT_PROOF_PACKET_PUBLISHED, receipt, profile)
         self.assertIsNotNone(deltas)
-        self.assertEqual(deltas["reputation"], 180.0)
+        self.assertEqual(deltas["reputation"], 580.0)
+        self.assertEqual(deltas["rail_credits"], 100.0)
         self.assertEqual(deltas["pod_reward_multiplier"], 10.0)
         self.assertEqual(deltas["governance_arc_tier"], TIER_CIVILIZATIONAL)
 

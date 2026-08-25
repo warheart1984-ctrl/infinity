@@ -61,6 +61,11 @@ def test_mind_posture_includes_alt8_organs():
         "continuity_witness_organ",
         "narrative_continuity_organ",
         "intent_agency_organ",
+        "social_continuity_organ",
+        "multi_being_continuity_organ",
+        "culture_of_beings_organ",
+        "constitutional_ecosystem_organ",
+        "governance_membrane_organ",
     }
     assert status.get("mind_planes_aligned") is True
 
@@ -101,6 +106,7 @@ def test_immune_observe_posture_includes_alt10_organs():
     status = build_coherence_fabric_status(root=Path(__file__).resolve().parents[1])
     organs = {item["organ_id"] for item in status.get("immune_observe_posture") or []}
     assert organs == {
+        "immune_resilience_organ",
         "immune_observe_organ",
         "policy_gate_organ",
         "predictor_immune_bridge_organ",

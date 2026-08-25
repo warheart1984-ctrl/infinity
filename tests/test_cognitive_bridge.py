@@ -14,6 +14,7 @@ from src.cognitive_bridge import (
 from src.immune_system import ImmuneSystemController
 from src.jarvis_detachment_guard import JarvisDetachmentGuard, build_bridge_attestation
 from src.module_governance import module_governance
+from src.otem_ceiling import OtemCeilingController
 from src.phase_gate import reset_registry
 
 
@@ -26,9 +27,14 @@ class TestCognitiveBridge(unittest.TestCase):
         module_governance.configure_runtime_dir(self.temp_root)
         module_governance.reset()
         reset_registry()
+        self.ceiling = OtemCeilingController(runtime_dir=self.temp_root)
+        self.immune = ImmuneSystemController(runtime_dir=self.temp_root, ceiling=self.ceiling)
         self.service = CognitiveBridgeService(
-            immune_controller=ImmuneSystemController(runtime_dir=self.temp_root),
-            detachment_guard=JarvisDetachmentGuard(runtime_dir=self.temp_root),
+            immune_controller=self.immune,
+            detachment_guard=JarvisDetachmentGuard(
+                runtime_dir=self.temp_root,
+                immune_controller=self.immune,
+            ),
         )
 
     def tearDown(self):

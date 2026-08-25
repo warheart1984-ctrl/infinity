@@ -249,3 +249,123 @@ class DominanceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLoadBearingTokenDeclarations(unittest.TestCase):
+    """INV-021's VT declaration is load-bearing at CEN evaluation, not just
+    advisory metadata: setting a declared dimension in a payload demands the
+    declared token type, regardless of transition classification."""
+
+    def setUp(self):
+        self.bridge = CenGovernanceBridge()
+
+    def test_setting_memory_without_vt_denied_even_as_runtime_action(self):
+        result = self.bridge.gate_commit(
+            transition_id="transition:identity-write",
+            transition_type="runtime_action",
+            payload={"memory": 90},
+            requested_capabilities=["state:commit"],
+            granted_capabilities=["workflow:execute", "state:commit"],
+        )
+        self.assertEqual(result["outcome"], "denied")
+        self.assertIn("VT", result["reason_detail"])
+        self.assertFalse(result["committed"])
+
+    def test_setting_memory_with_wrong_token_type_denied(self):
+        from src.cen_governance_bridge import issue_authority_token
+
+        token = issue_authority_token(
+            token_id="ft-x", token_type="FT", scope=["state:commit"],
+            transition_id="transition:identity-write-ft",
+            expires_at="2999-01-01T00:00:00.000Z",
+        )
+        result = self.bridge.gate_commit(
+            transition_id="transition:identity-write-ft",
+            transition_type="runtime_action",
+            payload={"memory": 90},
+            requested_capabilities=["state:commit"],
+            granted_capabilities=["workflow:execute", "state:commit"],
+            authority_token=token,
+        )
+        self.assertEqual(result["outcome"], "denied")
+        self.assertIn("got FT", result["reason_detail"])
+
+    def test_setting_memory_with_valid_vt_passes_floor(self):
+        from src.cen_governance_bridge import issue_authority_token
+
+        token = issue_authority_token(
+            token_id="vt-ok", token_type="VT", scope=["state:commit"],
+            transition_id="transition:identity-write-vt",
+            expires_at="2999-01-01T00:00:00.000Z",
+        )
+        result = self.bridge.gate_commit(
+            transition_id="transition:identity-write-vt",
+            transition_type="runtime_action",
+            payload={"memory": 90},
+            requested_capabilities=["state:commit"],
+            granted_capabilities=["workflow:execute", "state:commit"],
+            authority_token=token,
+        )
+        self.assertEqual(result["outcome"], "approved")
+
+    def test_snapshot_only_memory_read_ungated(self):
+        """Observing state is not proposing it — no token needed."""
+        result = self.bridge.gate_commit(
+            transition_id="transition:snapshot-read",
+            transition_type="runtime_action",
+            payload={"note": "report on identity posture"},
+            requested_capabilities=["state:read"],
+            granted_capabilities=["workflow:execute", "state:read"],
+            mri_snapshot={"continuity": 72, "governance": 80, "memory": 75,
+                          "coordination": 63, "confidence": 81},
+        )
+        self.assertEqual(result["outcome"], "approved")
+
+    def test_non_declared_dimensions_stay_token_free(self):
+        """Ordinary runtime actions over non-declared dimensions need no VT."""
+        result = self.bridge.gate_commit(
+            transition_id="transition:continuity-write",
+            transition_type="runtime_action",
+            payload={"continuity": 74},
+            requested_capabilities=["state:commit"],
+            granted_capabilities=["workflow:execute", "state:commit"],
+        )
+        self.assertEqual(result["outcome"], "approved")
+
+
+class TestClassifierDominance(unittest.TestCase):
+    """Every commit path through the executor passes classification."""
+
+    def test_executor_classifies_before_gating(self):
+        import inspect
+
+        from src.workflow_chain_executor import WorkflowChainExecutor
+
+        source = inspect.getsource(WorkflowChainExecutor.execute)
+        self.assertIn("classify_transition", source)
+        self.assertIn("cen_governance_bridge.gate_commit", source)
+
+    def test_mislabeled_law_bundle_is_token_gated_end_to_end(self):
+        """A bundle declaring constitutional_class=law_mutation hits the VT
+        gate even though its content looks ordinary."""
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = cen_governance_bridge.gate_commit(
+                transition_id="transition:mislabeled",
+                transition_type=classify_transition(bundle={"constitutional_class": "law_mutation"}),
+                payload={"note": "looks ordinary"},
+                requested_capabilities=["law:mutate"],
+                corridor_id="law-state",
+                granted_capabilities=["workflow:execute", "state:commit", "law:mutate"],
+                authority_token=None,
+            )
+            self.assertEqual(result["outcome"], "denied")
+            self.assertEqual(result["reason"], "cen_vt_required")
+
+    def test_bridge_never_auto_classifies_payload_content(self):
+        """The bridge itself trusts explicit types — document the boundary:
+        classification responsibility lives with callers (executor), and the
+        invariant-level payload checks above close the residual gap."""
+        self.assertEqual(classify_transition(bundle={}), "runtime_action")

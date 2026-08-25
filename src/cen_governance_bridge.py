@@ -24,6 +24,7 @@ from src.aaes_evidence_receipts import create_cen_evidence_receipt
 from src.constitutional_enforcement_node import (
     ConstitutionalEnforcementNode,
     compile_invariant_dsl,
+    create_resource_floor_invariant,
     issue_authority_token,
     verify_enforcement_receipt,
 )
@@ -36,21 +37,29 @@ RUNTIME_ACTION = "runtime_action"
 LAW_MUTATION_REQUIRED_TOKEN_TYPE = "VT"
 
 
-def _strictest_floors() -> dict[str, float]:
-    """Collapse canonical invariants to one resource floor per dimension."""
-    floors: dict[str, float] = {}
+def _strictest_floors() -> dict[str, tuple[float, str | None]]:
+    """Collapse canonical invariants to one resource floor per dimension,
+    preserving any authority-token declaration (strictest floor wins)."""
+    floors: dict[str, tuple[float, str | None]] = {}
     for definition in CANONICAL_INVARIANTS:
         dimension = definition["measured_dimensions"][0]
         threshold = float(definition["threshold"])
-        floors[dimension] = max(floors.get(dimension, threshold), threshold)
+        token = definition.get("required_authority_token")
+        current = floors.get(dimension)
+        if current is None or threshold > current[0]:
+            floors[dimension] = (threshold, token)
+        elif token and not current[1]:
+            floors[dimension] = (current[0], token)
     return floors
 
 
 def _default_invariants() -> list[Any]:
-    """Canonical constitutional floors as compiled floor invariants."""
+    """Canonical constitutional floors with load-bearing token declarations."""
     return [
-        compile_invariant_dsl(f"require {dimension} >= {_floor_num(floor)}")
-        for dimension, floor in sorted(_strictest_floors().items())
+        create_resource_floor_invariant(
+            dimension, floor, required_authority_token=token
+        )
+        for dimension, (floor, token) in sorted(_strictest_floors().items())
     ]
 
 

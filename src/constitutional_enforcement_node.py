@@ -152,12 +152,67 @@ def read_proposed_score(transition: dict[str, Any], dimension: str) -> float:
 
 
 class ResourceFloorInvariant:
-    def __init__(self, dimension: str, floor: float):
+    """Floor check over one constitutional dimension.
+
+    When required_authority_token is set (e.g. INV-021 -> VT), the
+    declaration is load-bearing: a transition whose PAYLOAD sets the
+    dimension must carry an authority token of the declared type.
+    Snapshot-only reads remain ungated — they observe state, they do
+    not propose it.
+    """
+
+    def __init__(
+        self,
+        dimension: str,
+        floor: float,
+        *,
+        required_authority_token: str | None = None,
+        name: str | None = None,
+    ):
+        if dimension not in CONSTITUTIONAL_DIMENSIONS:
+            raise ValueError(f"unknown constitutional dimension: {dimension}")
         self.dimension = dimension
         self.floor = floor
+        self.name = name or f"{dimension} floor"
+        self.required_authority_token = required_authority_token
         self.invariant_id = f"resource-floor:{dimension}:min:{_num(floor)}"
 
+    def _check_payload_token_requirement(
+        self, transition: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        if not self.required_authority_token:
+            return None
+        payload = transition.get("payload")
+        if not (isinstance(payload, dict) and isinstance(payload.get(self.dimension), (int, float))):
+            return None  # observes snapshot only — not proposing the dimension
+        token = transition.get("authorityToken") or transition.get("authority_token")
+        if not token:
+            return {
+                "invariantId": self.invariant_id,
+                "passed": False,
+                "message": (
+                    f"{self.name}: setting '{self.dimension}' requires a "
+                    f"{self.required_authority_token} authority token"
+                ),
+                "action": "DENY",
+            }
+        token_type = str(token.get("tokenType") or "").upper()
+        if token_type != str(self.required_authority_token).upper():
+            return {
+                "invariantId": self.invariant_id,
+                "passed": False,
+                "message": (
+                    f"{self.name}: setting '{self.dimension}' requires a "
+                    f"{self.required_authority_token} token, got {token_type or 'none'}"
+                ),
+                "action": "DENY",
+            }
+        return None
+
     def evaluate(self, transition: dict[str, Any]) -> dict[str, Any]:
+        token_refusal = self._check_payload_token_requirement(transition)
+        if token_refusal is not None:
+            return token_refusal
         proposed = read_proposed_score(transition, self.dimension)
         passed = proposed >= self.floor
         return {
@@ -172,10 +227,16 @@ class ResourceFloorInvariant:
         }
 
 
-def create_resource_floor_invariant(dimension: str, floor: float) -> ResourceFloorInvariant:
-    if dimension not in CONSTITUTIONAL_DIMENSIONS:
-        raise ValueError(f"unknown constitutional dimension: {dimension}")
-    return ResourceFloorInvariant(dimension, floor)
+def create_resource_floor_invariant(
+    dimension: str,
+    floor: float,
+    *,
+    required_authority_token: str | None = None,
+    name: str | None = None,
+) -> ResourceFloorInvariant:
+    return ResourceFloorInvariant(
+        dimension, floor, required_authority_token=required_authority_token, name=name
+    )
 
 
 _REQUIRE_RE = re.compile(

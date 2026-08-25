@@ -115,9 +115,11 @@ receipt_id   = "evidence:" + sha3_256( claim_label | subsystem | refs.join(",") 
 - **Precedence law**: when reading a dimension, `transition.payload[dimension]`
   (numeric) overrides `context.mri_snapshot[dimension]`. Conflicts resolve
   deterministically toward payload; there is no merge.
-- Authority-token enforcement itself belongs to the Constitutional
-  Enforcement Node (not yet ported to Python); the registry only carries
-  the declaration.
+- **Token declarations are load-bearing**: when CEN evaluates an invariant
+  whose canonical definition declares `required_authority_token`, a
+  transition whose payload sets that dimension must carry a token of the
+  declared type (e.g. INV-021 -> VT). Snapshot-only reads remain ungated.
+  Law mutations additionally demand VT via the bridge's classification rule.
 
 ## 7. Conformance
 

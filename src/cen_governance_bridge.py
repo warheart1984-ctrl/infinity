@@ -209,6 +209,9 @@ class CenGovernanceBridge:
         self._node = node or build_default_cen_node()
         # Ring 3 continuity state: monotonic ledger position and boot epoch.
         self._monotonic_position = 0
+        # Receipt-id -> CommitCertificate for approved transitions. Read-only
+        # consumers (sovereign_state) merge this with the receipt ledger.
+        self._certificate_index: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------ gating
 
@@ -325,6 +328,7 @@ class CenGovernanceBridge:
                 # Result
                 "resulting_state_hash": _payload_hash(frozen_payload),
             }
+            self._certificate_index[receipt["receiptId"]] = commit_cert
             return {
                 "outcome": "approved",
                 "transition_id": transition_id,
@@ -474,6 +478,11 @@ class CenGovernanceBridge:
     @property
     def receipts(self) -> list[dict[str, Any]]:
         return self._node.receipts()
+
+    @property
+    def certificates(self) -> dict[str, dict[str, Any]]:
+        """Read-only view of receipt-id -> commit certificate (approvals only)."""
+        return dict(self._certificate_index)
 
     def gate_law_state_write(
         self,

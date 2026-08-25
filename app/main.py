@@ -66,6 +66,7 @@ from app.db import (
     list_workflow_runs, list_workflows, now_iso, update_workflow, update_workflow_approval, update_workflow_run,
 )
 from app.auth import require_token, check_sse_token, check_ws_token
+from app.transcription import router as transcription_router
 from app.tasks import run_agent_job, run_workflow_job
 from app.rag import index_project, query_project
 from src.cisiv import normalize_cisiv_stage
@@ -203,6 +204,11 @@ def _run_otem_substrate_reconcile() -> None:
 
 
 app = FastAPI(title="AAIS Workflow Shell", version="11.0.0", lifespan=lifespan)
+
+# Sovereign state: read-only constitutional endpoints (no write path).
+from app.sovereign_router import router as sovereign_router  # noqa: E402
+
+app.include_router(sovereign_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=APP_CORS_ORIGINS,
@@ -211,6 +217,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.include_router(transcription_router)
 app.mount(LEGACY_API_MOUNT_PATH, WSGIMiddleware(legacy_api_bridge))
 
 

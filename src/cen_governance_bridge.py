@@ -212,6 +212,8 @@ class CenGovernanceBridge:
         actor: str = "operator",
         mri_snapshot: dict[str, float] | None = None,
         authority_token: dict[str, Any] | None = None,
+        require_ucr_attested: bool = False,
+        ucr_instance_id: str | None = None,
     ) -> dict[str, Any]:
         """Run the full invariant: classify -> CEN.execute() -> INV-021 VT ->
         evidence/receipt. Returns an APPROVAL binding the exact frozen payload,
@@ -225,6 +227,23 @@ class CenGovernanceBridge:
                 "coordination": 63,
                 "confidence": 81,
             }
+            ucr_error = self._check_ucr_attestation(
+                require_ucr_attested, ucr_instance_id, requested_capabilities
+            )
+            if ucr_error is not None:
+                result = self._execute_refusal(
+                    transition_id=transition_id,
+                    transition_type=transition_type,
+                    payload=frozen_payload,
+                    requested_capabilities=requested_capabilities,
+                    corridor_id=corridor_id,
+                    granted_capabilities=granted_capabilities,
+                    actor=actor,
+                    mri_snapshot=mri_snapshot,
+                    reason_code="CAPABILITY_DENIED",
+                    reason_detail=ucr_error,
+                )
+                return self._denial(result, reason="ucr_not_attested")
             token_error = self._check_vt_requirement(transition_type, authority_token)
             if token_error is not None:
                 # Denial must still traverse the node so a refusal receipt chains.
@@ -303,6 +322,26 @@ class CenGovernanceBridge:
         return {"outcome": "committed", "committed": True, "approval": approval}
 
     # ------------------------------------------------------------------ internals
+
+    def _check_ucr_attestation(
+        self,
+        require_ucr_attested: bool,
+        ucr_instance_id: str | None,
+        requested_capabilities: list[str],
+    ) -> str | None:
+        """Consume UCR attestation: gated commits may demand an attested,
+        registered execution instance (fail closed)."""
+        if not require_ucr_attested:
+            return None
+        try:
+            from src.ucr_attestation import get_registered_ucr_handle
+
+            handle = get_registered_ucr_handle()
+        except Exception:
+            return "UCR attestation unavailable"
+        if not handle:
+            return f"no attested UCR instance registered for this commit ({', '.join(requested_capabilities)})"
+        return None
 
     def _check_vt_requirement(self, transition_type: str, token: dict[str, Any] | None) -> str | None:
         if transition_type != LAW_MUTATION:

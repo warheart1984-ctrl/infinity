@@ -7,17 +7,21 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import struct
 import wave
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from beatbox.adapters.base_adapter import BeatboxAdapter
 from beatbox.adapters.deterministic_adapter import DeterministicAdapter
-from beatbox.contracts import BeatboxArtifact, MusicCue, ScoreRequest, ShotSceneState
-from beatbox.music_engine import build_arrangement, build_cue_from_shot, build_lyrics
+from beatbox.contracts import BeatboxArtifact, MusicCue, ScoreRequest
+from beatbox.music_engine import (
+    STEM_NAMES,
+    concat_stem_maps,
+    mix_music_stems,
+    pcm_to_wav_bytes,
+    render_cue_stems,
+    build_cue_from_shot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +64,8 @@ class ScoreLane:
 
         # Write outputs
         output_dir = self._resolve_output_dir(request)
-        audio_path = self._write_audio(output_dir, request, cues)
-        timeline_path = self._write_timeline(output_dir, request, cues, all_lyrics)
+        audio_path, stem_paths = self._write_audio(output_dir, request, cues)
+        timeline_path = self._write_timeline(output_dir, request, cues, all_lyrics, stem_paths)
 
         return BeatboxArtifact(
             session_id=request.session_id,
@@ -93,54 +97,34 @@ class ScoreLane:
 
     def _write_audio(
         self, output_dir: Path, request: ScoreRequest, cues: list[MusicCue]
-    ) -> Path:
-        """
-        Write a deterministic WAV file.
-        Each shot gets a sine-wave tone at a frequency derived from its BPM + mood.
-        This is the local cinematic equivalent for audio — real output without
-        a provider. Provider-backed audio (Suno, ElevenLabs, etc.) can replace
-        this via adapter swap at the same seam.
+    ) -> tuple[Path, dict[str, str]]:
+        """Write arrangement-engine stems plus a music mix (no voice).
+
+        Score truth stays in Beatbox. Voice remains a separate stem for Speakers.
         """
         audio_path = output_dir / f"{request.session_id}_score.wav"
         sample_rate = 44100
-        frames: list[bytes] = []
+        parts = [render_cue_stems(cue, sample_rate=sample_rate) for cue in cues]
+        combined = concat_stem_maps(parts)
+        music = mix_music_stems(combined)
+        audio_path.write_bytes(pcm_to_wav_bytes(music, sample_rate=sample_rate))
 
-        import math
+        stems_dir = output_dir / "stems"
+        stems_dir.mkdir(parents=True, exist_ok=True)
+        stem_paths: dict[str, str] = {}
+        for name in STEM_NAMES:
+            path = stems_dir / f"{name}.wav"
+            path.write_bytes(pcm_to_wav_bytes(combined.get(name) or [], sample_rate=sample_rate))
+            stem_paths[name] = str(path)
+        stem_paths["music"] = str(audio_path)
 
-        for cue in cues:
-            n_samples = int(cue.duration_seconds * sample_rate)
-            # Frequency: map bpm to a base tone (C=261, range 200–500Hz)
-            freq = 200 + (cue.bpm - 70) * (300 / 105)
-            # Amplitude: energy → volume (0.1 – 0.8)
-            amplitude = 0.1 + (cue.energy / 100) * 0.7
-            # Mood detune: intense = slight dissonance
-            detune = 1.005 if cue.mood == "intense" else 1.0
-            for i in range(n_samples):
-                t = i / sample_rate
-                # Simple sine wave + harmonic
-                sample = amplitude * (
-                    math.sin(2 * math.pi * freq * detune * t) * 0.7
-                    + math.sin(2 * math.pi * freq * 2 * t) * 0.2
-                    + math.sin(2 * math.pi * freq * 0.5 * t) * 0.1
-                )
-                # Apply simple fade in/out per cue
-                fade_samples = min(int(0.05 * sample_rate), n_samples // 4)
-                if i < fade_samples:
-                    sample *= i / fade_samples
-                elif i > n_samples - fade_samples:
-                    sample *= (n_samples - i) / fade_samples
-                # Clamp and convert to 16-bit PCM
-                sample = max(-1.0, min(1.0, sample))
-                frames.append(struct.pack("<h", int(sample * 32767)))
-
-        with wave.open(str(audio_path), "w") as wav:
-            wav.setnchannels(1)
-            wav.setsampwidth(2)
-            wav.setframerate(sample_rate)
-            wav.writeframes(b"".join(frames))
-
-        logger.info("Beatbox: wrote audio %s (%.1fs)", audio_path.name, sum(c.duration_seconds for c in cues))
-        return audio_path
+        logger.info(
+            "Beatbox: wrote arrangement mix %s (%.1fs, %d stems)",
+            audio_path.name,
+            sum(c.duration_seconds for c in cues),
+            len(stem_paths),
+        )
+        return audio_path, stem_paths
 
     # ── Timeline Writer ───────────────────────────────────────────────────────
 
@@ -150,6 +134,7 @@ class ScoreLane:
         request: ScoreRequest,
         cues: list[MusicCue],
         lyrics: list[str],
+        stem_paths: dict[str, str] | None = None,
     ) -> Path:
         timeline_path = output_dir / f"{request.session_id}_timeline.json"
         manifest = {
@@ -157,9 +142,11 @@ class ScoreLane:
             "scene_id": request.scene_id,
             "tone": request.tone,
             "target": request.target,
+            "engine": "arrangement_pcm.v1",
             "total_duration_seconds": sum(c.duration_seconds for c in cues),
             "cue_count": len(cues),
             "lyrics_summary": lyrics[:12],
+            "stem_paths": dict(stem_paths or {}),
             "cues": [
                 {
                     "shot_number": c.shot_number,

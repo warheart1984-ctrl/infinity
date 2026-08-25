@@ -239,6 +239,9 @@ def export_midi_bytes(state: SceneState, vocal_notes: Optional[list[dict[str, An
 
 _NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
 _ENHARMONICS = {"Bb": "A#", "Eb": "D#", "Ab": "G#", "Db": "C#", "Gb": "F#"}
+STEM_NAMES = ("kick", "snare", "hat", "bass", "chords", "voice")
+DEFAULT_SAMPLE_RATE = 44100
+
 
 def _note_to_midi(note: str) -> int:
     """Convert note string like 'C4', 'Bb3', 'F#3' to MIDI number."""
@@ -252,3 +255,215 @@ def _note_to_midi(note: str) -> int:
     if name not in _NOTE_NAMES:
         return 60  # fallback to middle C
     return (_NOTE_NAMES.index(name)) + (octave + 1) * 12
+
+
+def _midi_to_freq(midi_note: int) -> float:
+    return 440.0 * (2.0 ** ((int(midi_note) - 69) / 12.0))
+
+
+def _noise(index: int, seed: int) -> float:
+    x = (int(seed) * 1103515245 + int(index) * 12345) & 0x7FFFFFFF
+    return (x / 0x7FFFFFFF) * 2.0 - 1.0
+
+
+def _add_decaying_sine(
+    buf: list[float],
+    start: int,
+    length: int,
+    freq: float,
+    amp: float,
+    sample_rate: int,
+    decay: float,
+) -> None:
+    end = min(len(buf), start + length)
+    if end <= start or amp == 0:
+        return
+    two_pi = 2.0 * math.pi * freq / sample_rate
+    for i, idx in enumerate(range(start, end)):
+        env = math.exp(-decay * i / sample_rate)
+        buf[idx] += amp * env * math.sin(two_pi * i)
+
+
+def _add_held_sine(
+    buf: list[float],
+    start: int,
+    length: int,
+    freq: float,
+    amp: float,
+    sample_rate: int,
+) -> None:
+    end = min(len(buf), start + length)
+    if end <= start or amp == 0:
+        return
+    fade = min(int(0.01 * sample_rate), max(1, (end - start) // 8))
+    two_pi = 2.0 * math.pi * freq / sample_rate
+    span = end - start
+    for i, idx in enumerate(range(start, end)):
+        env = 1.0
+        if i < fade:
+            env = i / fade
+        elif i > span - fade:
+            env = max(0.0, (span - i) / fade)
+        buf[idx] += amp * env * math.sin(two_pi * i)
+
+
+def _add_noise_burst(
+    buf: list[float],
+    start: int,
+    length: int,
+    amp: float,
+    seed: int,
+    decay: float,
+    sample_rate: int,
+) -> None:
+    end = min(len(buf), start + length)
+    if end <= start or amp == 0:
+        return
+    for i, idx in enumerate(range(start, end)):
+        env = math.exp(-decay * i / sample_rate)
+        buf[idx] += amp * env * _noise(idx, seed)
+
+
+def render_arrangement_pcm(
+    arr: Arrangement,
+    duration_seconds: float,
+    sample_rate: int = DEFAULT_SAMPLE_RATE,
+    energy: float = 55.0,
+) -> dict[str, list[float]]:
+    """Render arrangement stems as float PCM. Deterministic; no I/O or network."""
+    n = max(1, int(max(0.05, float(duration_seconds)) * sample_rate))
+    stems = {name: [0.0] * n for name in STEM_NAMES}
+    seconds_per_beat = 60.0 / max(int(arr.bpm), 1)
+    step_sec = seconds_per_beat * 0.25
+    step_samples = max(1, int(step_sec * sample_rate))
+    energy_gain = 0.35 + (max(0.0, min(100.0, float(energy))) / 100.0) * 0.6
+    seed = (arr.bpm * 17 + arr.bars * 13 + len(arr.bass_roots) * 7) & 0x7FFFFFFF
+
+    total_steps = int(math.ceil(n / step_samples))
+    for step_index in range(total_steps):
+        start = step_index * step_samples
+        if start >= n:
+            break
+        pattern_step = step_index % 16
+        bar = (step_index // 16) % max(arr.bars, 1)
+        if arr.drum_pattern.kick[pattern_step]:
+            _add_decaying_sine(
+                stems["kick"], start, int(0.12 * sample_rate), 58.0, 0.95 * energy_gain,
+                sample_rate, decay=18.0,
+            )
+        if arr.drum_pattern.snare[pattern_step]:
+            _add_noise_burst(
+                stems["snare"], start, int(0.14 * sample_rate), 0.55 * energy_gain,
+                seed + step_index, decay=22.0, sample_rate=sample_rate,
+            )
+            _add_decaying_sine(
+                stems["snare"], start, int(0.1 * sample_rate), 186.0, 0.28 * energy_gain,
+                sample_rate, decay=16.0,
+            )
+        if arr.drum_pattern.hat[pattern_step]:
+            _add_noise_burst(
+                stems["hat"], start, int(0.04 * sample_rate), 0.22 * energy_gain,
+                seed + 99 + step_index, decay=40.0, sample_rate=sample_rate,
+            )
+
+    beat_samples = max(1, int(seconds_per_beat * sample_rate))
+    total_beats = int(math.ceil(n / beat_samples))
+    for beat in range(total_beats):
+        start = beat * beat_samples
+        bar = (beat // 4) % max(len(arr.bass_roots), 1)
+        if beat % 2 == 0:
+            bass_note = arr.bass_roots[bar % len(arr.bass_roots)]
+            _add_held_sine(
+                stems["bass"], start, beat_samples * 2,
+                _midi_to_freq(_note_to_midi(bass_note)), 0.42,
+                sample_rate,
+            )
+        chord = arr.chords[bar % len(arr.chords)]
+        if beat % 4 == 0:
+            for note in chord:
+                _add_held_sine(
+                    stems["chords"], start, beat_samples * 4,
+                    _midi_to_freq(_note_to_midi(note)), 0.14,
+                    sample_rate,
+                )
+
+    cursor = 0.0
+    while cursor * beat_samples < n:
+        for event in arr.vocal_notes:
+            dur_beats = max(0.25, float(event.get("durationBeats", 1)))
+            start = int(cursor * beat_samples)
+            length = int(dur_beats * beat_samples)
+            vel = float(event.get("velocity", 0.7))
+            _add_held_sine(
+                stems["voice"], start, length,
+                _midi_to_freq(_note_to_midi(str(event.get("note", "C4")))),
+                0.22 * vel,
+                sample_rate,
+            )
+            cursor += dur_beats
+            if cursor * beat_samples >= n:
+                break
+    return stems
+
+
+def mix_music_stems(stems: dict[str, list[float]]) -> list[float]:
+    """Beatbox score mix: drums/bass/chords only. Voice stays a Speakers stem."""
+    length = max((len(buf) for buf in stems.values()), default=0)
+    mixed = [0.0] * length
+    gains = {"kick": 1.0, "snare": 0.85, "hat": 0.45, "bass": 0.9, "chords": 0.7}
+    for name, gain in gains.items():
+        buf = stems.get(name) or []
+        for i, sample in enumerate(buf):
+            mixed[i] += sample * gain
+    return mixed
+
+
+def pcm_to_wav_bytes(samples: list[float], sample_rate: int = DEFAULT_SAMPLE_RATE) -> bytes:
+    import io
+    import wave
+    from array import array
+
+    frames = array("h")
+    for sample in samples:
+        clamped = max(-1.0, min(1.0, sample))
+        frames.append(int(clamped * 32767.0))
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(int(sample_rate))
+        handle.writeframes(frames.tobytes())
+    return buffer.getvalue()
+
+
+def scene_state_from_cue(cue: MusicCue) -> SceneState:
+    mood = cue.mood if cue.mood in CHORD_SETS else "calm"
+    return SceneState(
+        energy=float(cue.energy),
+        tension=float(cue.tension),
+        focus=60.0,
+        valence=float(cue.valence),
+        mood=mood,  # type: ignore[arg-type]
+        bpm=int(cue.bpm),
+        shot_number=int(cue.shot_number),
+        description=str(cue.description or ""),
+    )
+
+
+def render_cue_stems(cue: MusicCue, sample_rate: int = DEFAULT_SAMPLE_RATE) -> dict[str, list[float]]:
+    state = scene_state_from_cue(cue)
+    arrangement = build_arrangement(state)
+    return render_arrangement_pcm(
+        arrangement,
+        cue.duration_seconds,
+        sample_rate=sample_rate,
+        energy=cue.energy,
+    )
+
+
+def concat_stem_maps(parts: list[dict[str, list[float]]]) -> dict[str, list[float]]:
+    combined = {name: [] for name in STEM_NAMES}
+    for part in parts:
+        for name in STEM_NAMES:
+            combined[name].extend(part.get(name) or [])
+    return combined

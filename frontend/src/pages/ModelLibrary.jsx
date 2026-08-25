@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { apiGet, getApiErrorMessage } from '../lib/api';
+import { resolveModelLibraryLane } from '../lib/modelLibrary';
 import './ModelLibrary.css';
 
 const MODALITY_LABELS = {
@@ -100,6 +101,7 @@ function ModelLibrary() {
         <div className="model-library__quick">
           <Link to="/image-generator">Image / Img2Img</Link>
           <Link to="/audio-processor">Voice / Music</Link>
+          <Link to="/adaptive-music">Adaptive Score</Link>
           <Link to="/jarvis">Jarvis chat</Link>
         </div>
       </div>
@@ -108,7 +110,9 @@ function ModelLibrary() {
         <p className="session-empty">Loading model library…</p>
       ) : (
         <div className="model-library__grid">
-          {entries.map((entry) => (
+          {entries.map((entry) => {
+            const lane = resolveModelLibraryLane(entry.modality, entry.id);
+            return (
             <article key={entry.id} className="model-library__card page-panel">
               <header>
                 <h3>{entry.label}</h3>
@@ -144,8 +148,14 @@ function ModelLibrary() {
                   ))}
                 </ul>
               ) : null}
+              {lane ? (
+                <Link className="model-library__open" to={lane.href}>
+                  {lane.label}
+                </Link>
+              ) : null}
             </article>
-          ))}
+            );
+          })}
           {!entries.length ? (
             <p className="session-empty">No models match these filters.</p>
           ) : null}

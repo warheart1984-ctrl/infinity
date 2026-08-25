@@ -1,0 +1,25 @@
+{
+  "pack_id": "anthropic_style_skill_pack.v1",
+  "label": "Anthropic-style skill pack templates (AAIS)",
+  "not_claimed": "Not Claude Computer Use / full skill store",
+  "skills": [
+    {
+      "skill_id": "structure_brief",
+      "label": "Structure a brief",
+      "compose": ["analyze", "write"],
+      "description": "Produce structured analysis under one bus trace."
+    },
+    {
+      "skill_id": "critique_plan",
+      "label": "Critique a plan",
+      "compose": ["analyze", "structure"],
+      "description": "Critique operator plan with explicit reason codes."
+    },
+    {
+      "skill_id": "make_picture",
+      "label": "Make picture (routes to AAIS image path)",
+      "compose": ["picture_generation"],
+      "description": "Claude does not ship pixels — explicit handoff to PictureGenerationLane /api/image/generate."
+    }
+  ]
+}

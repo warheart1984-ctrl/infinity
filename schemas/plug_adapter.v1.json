@@ -7,7 +7,7 @@
     "plug_adapter_version": {"const": "plug_adapter.v1"},
     "plug_id": {"type": "string", "maxLength": 128},
     "display_name": {"type": "string", "maxLength": 256},
-    "plug_class": {"enum": ["mcp", "cursor_skill", "hf_agent_skill", "native_capability", "workflow"]},
+    "plug_class": {"enum": ["mcp", "cursor_skill", "hf_agent_skill", "native_capability", "workflow", "middleware"]},
     "authority_level": {"enum": ["observe", "assist", "execute", "admin"]},
     "enabled": {"type": "boolean"},
     "cisiv_stage": {"type": "string"},

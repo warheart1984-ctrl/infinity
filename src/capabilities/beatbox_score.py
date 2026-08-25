@@ -22,14 +22,27 @@ class BeatboxScoreCapability(AAISCapabilityModule):
     def _handle_status(self, payload: dict[str, Any]) -> dict[str, Any]:
         from src.beatbox_lane_organ import build_beatbox_lane_status
 
-        return self._ok("status", {"lane": build_beatbox_lane_status(), "standalone_lane": True})
+        return {
+            "lane": build_beatbox_lane_status(),
+            "standalone_lane": True,
+            "execution_ready": True,
+            "engine": "arrangement_pcm.v1",
+        }
 
     def _handle_score(self, payload: dict[str, Any]) -> dict[str, Any]:
-        timing = payload.get("timing") or {}
-        return self._ok(
-            "score",
-            {
-                "cue_plan": {"timing": timing, "status": "governed_posture"},
-                "standalone_lane": True,
-            },
-        )
+        from src.adaptive_music_runtime import compose_score
+
+        scored = compose_score(payload)
+        return {
+            "cue_plan": scored.get("cue_plan") or {},
+            "session_id": scored.get("session_id"),
+            "scene_id": scored.get("scene_id"),
+            "mood": scored.get("mood"),
+            "bpm": scored.get("bpm"),
+            "duration_sec": scored.get("duration_sec"),
+            "music_stem_path": scored.get("music_stem_path"),
+            "voice_stem_path": scored.get("voice_stem_path"),
+            "stem_paths": scored.get("stem_paths") or {},
+            "standalone_lane": True,
+            "engine": "arrangement_pcm.v1",
+        }

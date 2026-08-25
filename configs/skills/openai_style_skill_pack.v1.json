@@ -1,0 +1,25 @@
+{
+  "pack_id": "openai_style_skill_pack.v1",
+  "label": "OpenAI-style skill pack templates (AAIS)",
+  "not_claimed": "Not a ChatGPT store clone",
+  "skills": [
+    {
+      "skill_id": "compose_capability_workflow",
+      "label": "Compose capability workflow",
+      "compose": ["capability_bridge", "workflows"],
+      "description": "Plan a multi-step capability-bridge + workflow template run."
+    },
+    {
+      "skill_id": "adaptive_music_pack",
+      "label": "Adaptive music pack",
+      "compose": ["adaptive_music_compose", "mandala_visual_sync"],
+      "description": "Route creative ask toward AAIS adaptive score tools."
+    },
+    {
+      "skill_id": "code_scaffold",
+      "label": "Code scaffold (demo)",
+      "compose": ["forge_lane", "workspace_lane"],
+      "description": "Demo code/workflow skill — Forge-isolated when policy marks risky."
+    }
+  ]
+}

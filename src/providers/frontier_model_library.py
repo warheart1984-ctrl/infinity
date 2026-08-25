@@ -218,6 +218,19 @@ MODEL_LIBRARY: tuple[ModelLibraryEntry, ...] = (
         status="available",
         tags=("hf", "music"),
     ),
+    ModelLibraryEntry(
+        id="music.local.beatbox",
+        label="Beatbox Adaptive Score",
+        modality="music",
+        provider_id="local",
+        model_id="arrangement_pcm.v1",
+        free_tier=True,
+        cloud=False,
+        summary="Deterministic adaptive score from scene state via Beatbox + Speakers mix.",
+        status="available",
+        activation_hint="Open /adaptive-music — no API key. Mood/energy/tension drive the arrangement.",
+        tags=("local", "beatbox", "speakers", "adaptive"),
+    ),
 )
 
 

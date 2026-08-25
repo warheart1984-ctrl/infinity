@@ -1,0 +1,55 @@
+{
+  "policy_rules_version": "task_bus_compliance_rules.v1",
+  "description": "Constitutional Task Bus compliance DSL — deny wins over allow on conflict.",
+  "rules": [
+    {
+      "id": "allow_ms_tasks_normal",
+      "effect": "allow",
+      "providers": ["ms_tasks", "ms_docs"],
+      "match": {
+        "all": [
+          { "path": "intent.type", "in": ["task", "mixed"] },
+          { "path": "policy.riskLevel", "in": ["low", "normal"] }
+        ]
+      },
+      "reason": "Normal-risk planning/todo may use Microsoft-style task/docs lanes."
+    },
+    {
+      "id": "route_longform_to_claude",
+      "effect": "allow",
+      "providers": ["claude_writer", "claude_research"],
+      "match": {
+        "any": [
+          { "path": "intent.tags", "contains": "longform" },
+          { "path": "intent.tags", "contains": "write" },
+          { "path": "intent.type", "in": ["skill", "mixed"] }
+        ]
+      },
+      "reason": "Long-form writing/analysis routes to Claude-style writer/research subcontracts."
+    },
+    {
+      "id": "high_risk_code",
+      "effect": "deny",
+      "providers": ["gpt_tools", "gpt_reasoning"],
+      "match": {
+        "all": [
+          { "path": "policy.riskLevel", "eq": "high" },
+          {
+            "any": [
+              { "path": "intent.tags", "contains": "code" },
+              { "path": "intent.type", "in": ["workflow", "skill"] }
+            ]
+          }
+        ]
+      },
+      "reason": "High-risk code/workflow blocked on GPT-style lanes without elevated authority."
+    }
+  ],
+  "default_providers_by_intent": {
+    "task": ["ms_tasks", "ms_docs"],
+    "skill": ["gpt_tools", "claude_writer"],
+    "workflow": ["gpt_tools", "gpt_reasoning"],
+    "picture": ["image_gen", "mandala"],
+    "mixed": ["ms_tasks", "gpt_tools", "claude_writer", "image_gen", "mandala"]
+  }
+}

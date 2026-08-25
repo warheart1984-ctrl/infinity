@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "mandala_visual_adaptation.v1",
+  "description": "Sync contract: adaptive audio cue/mix metadata → Mandala/Story Forge visual hooks. Plan-only; does not own pixels.",
+  "type": "object",
+  "required": [
+    "ok",
+    "plan_version",
+    "adapter_version",
+    "plan_id",
+    "mood",
+    "bpm",
+    "lighting",
+    "camera",
+    "glyph_particle",
+    "renderer_hooks",
+    "source",
+    "consumer_seam",
+    "claim_label"
+  ],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "plan_version": { "const": "mandala_visual_adaptation.v1" },
+    "adapter_version": { "type": "string" },
+    "plan_id": { "type": "string", "pattern": "^mvap_[a-f0-9]{16}$" },
+    "mood": { "enum": ["calm", "focused", "intense", "happy"] },
+    "bpm": { "type": "integer", "minimum": 70, "maximum": 175 },
+    "lighting": {
+      "type": "object",
+      "required": ["intensity", "hue_deg", "temperature", "profile"],
+      "properties": {
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "hue_deg": { "type": "number", "minimum": 0, "maximum": 360 },
+        "temperature": { "enum": ["cool", "neutral", "warm"] },
+        "profile": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "camera": {
+      "type": "object",
+      "required": ["pulse_hz", "beat_period_ms", "motion_amplitude", "motion_profile", "movement_energy"],
+      "properties": {
+        "pulse_hz": { "type": "number", "minimum": 0 },
+        "beat_period_ms": { "type": "integer", "minimum": 1 },
+        "motion_amplitude": { "type": "number", "minimum": 0, "maximum": 1 },
+        "motion_profile": { "type": "string" },
+        "movement_energy": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "glyph_particle": {
+      "type": "object",
+      "required": ["energy", "density", "sparkle", "valence_bias"],
+      "properties": {
+        "energy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "density": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sparkle": { "type": "number", "minimum": 0, "maximum": 1 },
+        "valence_bias": { "type": "number", "minimum": -1, "maximum": 1 },
+        "focus_lock": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "renderer_hooks": {
+      "type": "object",
+      "description": "Flat hooks for existing Mandala/Story Forge consumers (lighting, camera, particles).",
+      "additionalProperties": true
+    },
+    "source": { "type": "object", "additionalProperties": true },
+    "consumer_seam": {
+      "type": "object",
+      "required": ["status", "owns_pixels"],
+      "properties": {
+        "status": { "const": "plan_only" },
+        "owns_pixels": { "const": false },
+        "existing_surfaces": { "type": "array", "items": { "type": "string" } },
+        "apply_hint": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "claim_label": { "enum": ["asserted", "verified", "governed"] },
+    "reason_code": { "type": "string" },
+    "message": { "type": "string" }
+  },
+  "additionalProperties": true
+}

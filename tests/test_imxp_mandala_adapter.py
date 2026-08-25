@@ -130,8 +130,12 @@ class ImxpMandalaAdapterTests(unittest.TestCase):
             "mgm_class": "MGM-1",
         }
         auth = authorize_membrane_slot_admission(candidate)
+        from src.multi_organism_governance_membrane_runtime import membrane_policy_record
+        from tests.cen_test_helpers import mint_vt_token
+
+        token = mint_vt_token("operator_membrane_policy", membrane_policy_record(candidate))
         adopted = self.runtime.adopt_membrane_policy(
-            candidate, operator_approved=True, jarvis_authorization=auth, session_id="mgm-test"
+            candidate, operator_approved=True, jarvis_authorization=auth, session_id="mgm-test", authority_token=token
         )
         self.assertEqual(adopted.get("outcome"), "adopted")
         blocked = self.adapter.admit_packet(_make_packet())
@@ -167,11 +171,16 @@ class ImxpMandalaAdapterTests(unittest.TestCase):
         persist = getattr(self.runtime, "_persist_candidate")
         persist(candidate)
         auth = authorize_membrane_slot_admission(candidate)
+        from src.multi_organism_governance_membrane_runtime import membrane_policy_record
+        from tests.cen_test_helpers import mint_vt_token
+
+        token = mint_vt_token("operator_membrane_policy", membrane_policy_record(candidate), token_id="vt-grant")
         adopted = self.adapter.propose_policy_from_grant(
             _make_grant(),
             operator_approved=True,
             jarvis_authorization=auth,
             session_id="mgm-mandala",
+            authority_token=token,
         )
         self.assertEqual(adopted.get("outcome"), "adopted")
 

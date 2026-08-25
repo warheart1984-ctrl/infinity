@@ -43,6 +43,28 @@ def validate_policy_against_upstream_layers(
     return {"aligned": aligned, "violations": violations, "claim_label": "asserted" if aligned else "rejected"}
 
 
+def membrane_policy_record(candidate: dict[str, Any]) -> dict[str, Any]:
+    """The exact law-state record an adoption will write (pre-CEN draft).
+
+    Exposed so operators can pre-mint deterministic VT authority tokens
+    bound to the record's CEN transition id.
+    """
+    return {
+        "policy_version": POLICY_VERSION,
+        "policy_kind": str(candidate.get("policy_kind") or "composite"),
+        "charter_ref": dict(candidate.get("charter_ref") or {}),
+        "permitted_channels": list(candidate.get("permitted_channels") or []),
+        "consent_requirements": dict(candidate.get("consent_requirements") or {}),
+        "summary": str(candidate.get("summary") or "")[:500],
+        "evidence_refs": list(candidate.get("evidence_refs") or []),
+        "stability_score": float(candidate.get("stability_score") or 0),
+        "claim_label": "asserted",
+        "operator_promoted": True,
+        "mgm_class": "MGM-2",
+        "candidate_id": candidate.get("candidate_id"),
+    }
+
+
 class MultiOrganismGovernanceMembraneRuntime:
     def __init__(self, *, runtime_dir: Path | None = None, repo_root: Path | None = None):
         self._runtime_dir = runtime_dir or _default_runtime_dir()
@@ -192,6 +214,7 @@ class MultiOrganismGovernanceMembraneRuntime:
         operator_approved: bool = False,
         jarvis_authorization: dict[str, Any] | None = None,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not operator_approved:
             return {"outcome": "blocked", "reason": "operator_approved required", "status": 403}
@@ -203,23 +226,29 @@ class MultiOrganismGovernanceMembraneRuntime:
         if not validation.get("aligned"):
             return {"outcome": "blocked", "reason": "alignment_validation_failed", "violations": validation.get("violations")}
 
-        policy_id = f"policy_{uuid4().hex[:12]}"
-        policy = {
-            "policy_version": POLICY_VERSION,
-            "policy_id": policy_id,
-            "policy_kind": str(candidate.get("policy_kind") or "composite"),
-            "charter_ref": dict(candidate.get("charter_ref") or {}),
-            "permitted_channels": list(candidate.get("permitted_channels") or []),
-            "consent_requirements": dict(candidate.get("consent_requirements") or {}),
-            "summary": str(candidate.get("summary") or "")[:500],
-            "evidence_refs": list(candidate.get("evidence_refs") or []),
-            "stability_score": float(candidate.get("stability_score") or 0),
-            "claim_label": "asserted",
-            "operator_promoted": True,
-            "mgm_class": "MGM-2",
-            "candidate_id": candidate.get("candidate_id"),
-            "jarvis_receipt_id": auth.get("jarvis_receipt_id"),
-        }
+        # INV-021: adopting a membrane policy IS a law mutation — no valid
+        # VT token, no state transition. Denial happens BEFORE any write.
+        # The gated record is the EXACT record the sink will persist.
+        from src.cen_governance_bridge import cen_governance_bridge
+
+        policy = membrane_policy_record(candidate)
+        policy["policy_id"] = f"policy_{uuid4().hex[:12]}"
+        policy["jarvis_receipt_id"] = auth.get("jarvis_receipt_id")
+        cen_approval = cen_governance_bridge.gate_law_state_write(
+            sink="operator_membrane_policy",
+            record=policy,
+            actor=str(auth.get("actor") or "operator"),
+            authority_token=authority_token,
+        )
+        if cen_approval.get("outcome") != "approved":
+            return {
+                "outcome": "blocked",
+                "reason": cen_approval.get("reason") or "cen_denied",
+                "cen": cen_approval,
+                "status": 403,
+            }
+
+        policy["cen_approval"] = cen_approval
         save_adopted_policy(policy, repo_root=self._repo_root)
         self._write_membrane_slot(policy)
         self._emit_membrane_adoption_ledger(session_id, policy)

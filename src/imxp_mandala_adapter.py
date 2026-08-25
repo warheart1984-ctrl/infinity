@@ -306,6 +306,11 @@ class ImxpMandalaAdapter:
                 consent_requirements=consent_requirements,
                 stability_score=candidate["stability_score"],
             )
+            # Deterministic id: the same grant must yield the same candidate,
+            # so operator-minted VT tokens bind across proposal and adoption.
+            merged["candidate_id"] = (
+                f"pcand_mandala_{hashlib.sha256(grant_id.encode()).hexdigest()[:12]}"
+            )
             merged["evidence_refs"] = candidate["evidence_refs"]
             merged["mandala_grant"] = candidate["mandala_grant"]
             return merged
@@ -321,6 +326,7 @@ class ImxpMandalaAdapter:
         operator_approved: bool = False,
         jarvis_authorization: dict[str, Any] | None = None,
         session_id: str = "global",
+        authority_token: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Full dual-gate path: grant -> candidate -> adopt_membrane_policy."""
         candidate = self.grant_to_policy_candidate(grant)
@@ -344,6 +350,7 @@ class ImxpMandalaAdapter:
             operator_approved=operator_approved,
             jarvis_authorization=jarvis_authorization,
             session_id=session_id,
+            authority_token=authority_token,
         )
 
     @staticmethod

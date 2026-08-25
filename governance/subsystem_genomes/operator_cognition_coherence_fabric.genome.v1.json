@@ -107,7 +107,7 @@
         "proposal_id": "MP-OCCF-001",
         "status": "promoted",
         "schema_delta_ref": "schemas/deltas/operator_cognition_coherence_fabric_MP-OCCF-001.json",
-        "notes": "backup: .runtime\\governance\\mutation_backups\\operator_cognition_coherence_fabric_20260602T235447Z.genome.v1.json"
+        "notes": "backup: .runtime/governance/mutation_backups/operator_cognition_coherence_fabric_20260602T235447Z.genome.v1.json"
       }
     ]
   },

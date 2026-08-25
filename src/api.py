@@ -8,6 +8,7 @@ defined here.
 
 # Mythic: Api
 # Engineering: ApiEngine
+from pathlib import Path
 import asyncio
 import base64
 import gc
@@ -16,7 +17,9 @@ import json
 import os
 import re
 import tempfile
+import time
 import threading
+import urllib.request
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from src.datetime_compat import UTC
@@ -105,6 +108,7 @@ from src.jarvis_modular import (
     build_modular_provider_preview,
     build_provider_messages_from_protocol,
 )
+from src.category_manager import category_manager
 from src.jarvis_protocol import protocol_spec
 from src.cog_runtime.nova import (
     apply_nova_cognitive_finalization,
@@ -229,6 +233,59 @@ from src.jarvis_organ_status_routes import register_jarvis_organ_status_routes
 from src.operator_api_routes import register_operator_api_routes
 
 logger = get_logger(__name__)
+
+
+LIRL_URL = os.getenv("AAIS_LIRL_URL", "http://127.0.0.1:7801")
+LIRL_RECEIPTS_ENABLED = os.getenv("AAIS_LIRL_RECEIPTS", "1").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _issue_organism_receipt(session, user_message, response_text):
+    """Fire-and-forget: register this turn on the LIRL organism (:7801).
+
+    Every JARVIS answer becomes a lawful intent with an evidence receipt,
+    unifying audit across the whole body. Never blocks or fails the turn.
+    """
+    if not LIRL_RECEIPTS_ENABLED:
+        return
+    def _work():
+        try:
+            import hashlib
+            payload = {
+                "question_sha256": hashlib.sha256(str(user_message).encode("utf-8")).hexdigest()[:16],
+                "reply_chars": len(response_text or ""),
+                "session_id": getattr(session, "session_id", ""),
+                "persona_mode": (session.metadata or {}).get("persona_mode"),
+                "response_mode": (session.metadata or {}).get("response_mode"),
+                "preferred_provider": (session.metadata or {}).get("preferred_provider"),
+            }
+            body = json.dumps({
+                "actorId": "operator-jon",
+                "action": "agent.execute",
+                "payload": payload,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                f"{LIRL_URL}/lirl/intent",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=2.5) as resp:
+                receipt = json.loads(resp.read().decode("utf-8"))
+            session.metadata["organism_receipt"] = {
+                "receipt_id": receipt.get("receiptId"),
+                "verdict": receipt.get("verdict"),
+            }
+            logger.info(f"Organism receipt: {receipt.get('receiptId')} verdict={receipt.get('verdict')}")
+        except Exception as exc:
+            logger.warning(f"Organism receipt unavailable: {exc}")
+    threading.Thread(target=_work, daemon=True).start()
+import faulthandler
+import signal as _signal
+try:
+    faulthandler.register(_signal.SIGUSR1, all_threads=True)
+except Exception:
+    pass
+
 config = get_config()
 
 conversation_memory.bind_memory_enforcer(jarvis_operator.memory_enforcer)
@@ -471,6 +528,19 @@ RESPONSE_MODE_DEFAULTS = {
         "temperature": 0.2,
     },
 }
+
+def _apply_output_floor(defaults):
+    try:
+        floor=int(os.getenv("AAIS_MIN_OUTPUT_TOKENS","") or 0)
+    except ValueError:
+        floor=0
+    if floor>0:
+        for prof in defaults.values():
+            if isinstance(prof,dict) and "max_tokens" in prof:
+                prof["max_tokens"]=max(prof["max_tokens"],floor)
+    return defaults
+
+RESPONSE_MODE_DEFAULTS=_apply_output_floor(RESPONSE_MODE_DEFAULTS)
 
 PROVIDER_PROMPT_MARGIN_BY_ID = {
     "local": 64,
@@ -6655,7 +6725,10 @@ def _set_session_preferred_provider(
                 prefer_new_session_default=prefer_new_session_default,
             )
             if (requested_provider_mode is not None or prefer_new_session_default)
-            else session.metadata.get("preferred_provider")
+            else (
+                session.metadata.get("preferred_provider")
+                or _default_new_session_provider()
+            )
         )
     )
     normalized = normalize_provider_identifier(raw_provider, default="local")
@@ -6683,6 +6756,18 @@ def _set_session_preferred_provider(
 
 def _default_new_session_provider(*, requested_provider_mode: str | None = None, prefer_new_session_default: bool = False):
     """Choose the preferred provider for a fresh Jarvis session."""
+    # nx bridge: honor AAIS_DEFAULT_PROVIDER so fresh sessions use a live
+    # remote brain (e.g. openrouter bridged to NVIDIA NIM) when configured,
+    # instead of silently falling back to the local/mock lane.
+    env_default = os.getenv("AAIS_DEFAULT_PROVIDER", "").strip().lower()
+    if env_default:
+        if env_default == "auto":
+            for pid in ("openrouter", "claude", "openai"):
+                if provider_registry.can_invoke(pid):
+                    return pid
+        elif provider_registry.can_invoke(env_default):
+            return env_default
+
     normalized_provider_mode = normalize_provider_mode_identifier(requested_provider_mode, default="")
     if normalized_provider_mode == "auto_best":
         return "auto"
@@ -8283,20 +8368,42 @@ def generate_image():
     """Generate image from text prompt."""
     try:
         data = request.json or {}
-        prompt = data.get("prompt")
-        num_steps = data.get("num_inference_steps", 50)
-
+        prompt = (data.get("prompt") or "").strip()
         if not prompt:
             return jsonify({"error": "Prompt is required"}), 400
 
+        # nx bridge: prefer the local SD-Turbo GGUF server (RX 580 Vulkan).
+        sd_url = os.getenv("AAIS_SD_URL", "http://127.0.0.1:13306")
+        use_sd = os.getenv("AAIS_SD_ENABLED", "1").strip().lower() in {"1", "true", "yes", "on"}
+
+        if use_sd:
+            import urllib.request as _ur
+            size = data.get("size") or "512x512"
+            body = json.dumps({
+                "prompt": prompt[:2000],
+                "n": 1,
+                "size": size,
+            }).encode("utf-8")
+            req = _ur.Request(
+                f"{sd_url}/v1/images/generations",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with _ur.urlopen(req, timeout=300) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            image_b64 = (payload.get("data") or [{}])[0].get("b64_json", "")
+            if image_b64:
+                return jsonify({"image": image_b64, "format": "png", "engine": "sd-turbo-vulkan"})
+
+        # Fallback: legacy in-process path (requires torch runtime).
+        num_steps = data.get("num_inference_steps", 50)
         image = _run_with_inference_lock(
             lambda: init_ai()[0].generate_image(prompt, num_steps)
         )
-
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         image_base64 = base64.b64encode(buffer.getvalue()).decode()
-
         return jsonify({"image": image_base64, "format": "png"})
 
     except RuntimeError as e:
@@ -8461,6 +8568,32 @@ def add_jarvis_memory():
         )
         if not security_result["decision"]["allowed"]:
             return _build_security_block_response(security_result)
+        # nx: modular category validation + defaults
+        extra_fields = {}
+        cat_def = None
+        if data.get("category"):
+            cat_def = category_manager.get(data["category"])
+        if cat_def:
+            meta_keys = {
+                "tags", "pinned", "source", "priority", "active",
+                "kind", "override", "scope", "supersedes", "why",
+                "state_class", "truth_status", "category",
+            }
+            extra_fields = {
+                k: v for k, v in data.items()
+                if k not in meta_keys and isinstance(v, (str, int, float, bool))
+            }
+        if cat_def:
+            try:
+                extra_fields = category_manager.validate(
+                    data["category"],
+                    {"content": data.get("text") or data.get("content") or "", **extra_fields},
+                )
+            except ValueError as ve:
+                return jsonify({"error": str(ve)}), 400
+            if data.get("priority") is None and cat_def.get("default_priority"):
+                data["priority"] = cat_def["default_priority"]
+
         memory = jarvis_operator.memory_enforcer.add_memory(
             text=data.get("text") or data.get("content"),
             tags=data.get("tags"),
@@ -9701,6 +9834,8 @@ def get_evolve_presets():
     """Expose the bounded evolve presets Jarvis can authorize."""
 
     try:
+        if os.getenv("AAIS_EVOLVE_ENABLED", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+            return jsonify({"disabled": True, "reason": "Evolve contractor retired (set AAIS_EVOLVE_ENABLED=1 to revive)."}), 200
         return jsonify({"presets": jarvis_operator.list_evolution_presets()})
     except Exception as e:
         logger.error(f"Error reading evolve presets: {e}")
@@ -9825,6 +9960,8 @@ def get_evolve_hall_of_fame():
     """Return the latest successful mutations through AAIS."""
 
     try:
+        if os.getenv("AAIS_EVOLVE_ENABLED", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+            return jsonify({"disabled": True, "reason": "Evolve contractor retired (set AAIS_EVOLVE_ENABLED=1 to revive)."}), 200
         limit = max(1, min(int(request.args.get("limit", 20)), 200))
         payload = jarvis_operator.list_evolution_hall_of_fame(limit=limit)
         return jsonify(payload)
@@ -9841,6 +9978,8 @@ def get_evolve_hall_of_shame():
     """Return the latest failed mutations through AAIS."""
 
     try:
+        if os.getenv("AAIS_EVOLVE_ENABLED", "0").strip().lower() not in {"1", "true", "yes", "on"}:
+            return jsonify({"disabled": True, "reason": "Evolve contractor retired (set AAIS_EVOLVE_ENABLED=1 to revive)."}), 200
         limit = max(1, min(int(request.args.get("limit", 20)), 200))
         payload = jarvis_operator.list_evolution_hall_of_shame(limit=limit)
         return jsonify(payload)
@@ -11267,10 +11406,221 @@ def list_specialists():
 def list_providers():
     """List available local and optional remote providers for Jarvis routing."""
     try:
+        for _pid in _load_provider_key_overrides():
+            _apply_provider_key_override(_pid)
+        _rd = _load_runtime_defaults()
+        if _rd.get("default_provider"):
+            os.environ.setdefault("AAIS_DEFAULT_PROVIDER", _rd["default_provider"])
+        if _rd.get("model"):
+            os.environ.setdefault("NX_LLM_MODEL", _rd["model"])
+        if _rd.get("reasoning_effort"):
+            os.environ.setdefault("NX_REASONING_EFFORT", _rd["reasoning_effort"])
         provider_registry.refresh()
         return jsonify({"providers": provider_registry.list_status()})
     except Exception as e:
         logger.error(f"Error listing providers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────
+# Runtime provider keys & session runtime config (nx bridge)
+# ──────────────────────────────────────────────
+
+PROVIDER_KEY_ENV = {
+    "nvidia": "NVIDIA_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "claude": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "tokenra": "TOKENRA_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "xai": "XAI_API_KEY",
+    "together": "TOGETHER_API_KEY",
+    "fireworks": "FIREWORKS_API_KEY",
+    "perplexity": "PERPLEXITY_API_KEY",
+    "moonshot": "MOONSHOT_API_KEY",
+    "ai21": "AI21_API_KEY",
+}
+
+PROVIDER_KEYS_PATH = os.getenv(
+    "AAIS_PROVIDER_KEYS_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".local", "provider_keys.json"),
+)
+
+
+def _load_provider_key_overrides() -> dict:
+    try:
+        with open(PROVIDER_KEYS_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _persist_provider_key(provider_id: str, api_key: str) -> None:
+    overrides = _load_provider_key_overrides()
+    if api_key:
+        overrides[provider_id] = api_key
+    else:
+        overrides.pop(provider_id, None)
+    path = Path(PROVIDER_KEYS_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(overrides, fh)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+def _apply_provider_key_override(provider_id: str) -> None:
+    env_name = PROVIDER_KEY_ENV.get(provider_id, f"{provider_id.upper()}_API_KEY")
+    stored = _load_provider_key_overrides().get(provider_id, "")
+    if stored:
+        os.environ[env_name] = stored
+
+
+@app.route("/api/jarvis/providers/key", methods=["POST"])
+def set_provider_key():
+    """Store a provider API key durably (0600 local file) and activate it now."""
+    try:
+        data = request.json or {}
+        provider_id = str(data.get("provider_id") or "").strip().lower()
+        api_key = str(data.get("api_key") or "").strip()
+        if not provider_id:
+            return jsonify({"error": "provider_id is required"}), 400
+
+        env_name = PROVIDER_KEY_ENV.get(provider_id, f"{provider_id.upper()}_API_KEY")
+        if api_key:
+            _persist_provider_key(provider_id, api_key)
+            os.environ[env_name] = api_key
+            _apply_provider_key_override(provider_id)
+        else:
+            _persist_provider_key(provider_id, "")
+            os.environ.pop(env_name, None)
+
+        provider_registry.refresh()
+        statuses = provider_registry.list_status()
+        status = {}
+        if isinstance(statuses, dict):
+            status = statuses.get(provider_id, {})
+        elif isinstance(statuses, list):
+            for entry in statuses:
+                if isinstance(entry, dict) and str(entry.get("id") or entry.get("name") or "").lower() == provider_id:
+                    status = entry
+                    break
+        return jsonify({
+            "ok": True,
+            "provider_id": provider_id,
+            "enabled": bool(status.get("enabled")),
+            "can_invoke": bool(provider_registry.can_invoke(provider_id)),
+            "masked_key": (f"…{api_key[-4:]}" if api_key else ""),
+        })
+    except Exception as e:
+        logger.error(f"Error setting provider key: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/sessions/<session_id>/runtime-config", methods=["POST"])
+def set_session_runtime_config(session_id):
+    """Set response_mode / preferred_provider on a live session WITHOUT persona coupling."""
+    try:
+        session = conversation_memory.get_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found or expired"}), 404
+        data = request.json or {}
+
+        result = {}
+        if "response_mode" in data:
+            requested = normalize_response_mode(data.get("response_mode"))
+            # Companion personas keep their locked lane; everyone else is free.
+            if not (
+                is_tiny_nova_persona(session.metadata.get("persona_mode"))
+                or is_small_nova_persona(session.metadata.get("persona_mode"))
+                or is_super_nova_persona(session.metadata.get("persona_mode"))
+            ):
+                session.metadata["requested_response_mode"] = requested
+                session.metadata["response_mode"] = requested
+                result["response_mode"] = requested
+            else:
+                result["response_mode"] = session.metadata.get("response_mode")
+                result["response_mode_locked"] = True
+
+        if "preferred_provider" in data:
+            _set_session_preferred_provider(
+                session,
+                requested_provider=str(data.get("preferred_provider") or "").strip() or None,
+            )
+            result["preferred_provider"] = session.metadata.get("preferred_provider")
+
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        logger.error(f"Error setting runtime config: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+RUNTIME_DEFAULTS_PATH = os.getenv(
+    "AAIS_RUNTIME_DEFAULTS_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".local", "runtime_defaults.json"),
+)
+
+
+def _load_runtime_defaults() -> dict:
+    try:
+        with open(RUNTIME_DEFAULTS_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _persist_runtime_defaults(defaults: dict) -> dict:
+    path = Path(RUNTIME_DEFAULTS_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(defaults, fh, indent=2)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    return defaults
+
+
+@app.route("/api/runtime-defaults", methods=["GET"])
+def get_runtime_defaults():
+    """Global defaults applied to NEW sessions (provider brain, reasoning)."""
+    return jsonify(_load_runtime_defaults())
+
+
+@app.route("/api/runtime-defaults", methods=["POST"])
+def set_runtime_defaults():
+    """Persist global defaults for new sessions and hot-inject env."""
+    try:
+        data = request.json or {}
+        current = _load_runtime_defaults()
+
+        if "default_provider" in data:
+            provider_id = str(data.get("default_provider") or "").strip().lower()
+            current["default_provider"] = provider_id
+            os.environ["AAIS_DEFAULT_PROVIDER"] = provider_id
+            key_env = PROVIDER_KEY_ENV.get(provider_id)
+            if key_env:
+                _apply_provider_key_override(provider_id)
+
+        if "reasoning_effort" in data:
+            current["reasoning_effort"] = str(data.get("reasoning_effort") or "")
+            os.environ["NX_REASONING_EFFORT"] = current["reasoning_effort"]
+
+        if "model" in data:
+            current["model"] = str(data.get("model") or "").strip()
+            os.environ["NX_LLM_MODEL"] = current["model"]
+
+        _persist_runtime_defaults(current)
+        return jsonify({"ok": True, "defaults": current})
+    except Exception as e:
+        logger.error(f"Error setting runtime defaults: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -15168,9 +15518,39 @@ def verify_browser_route(session_id):
 # Conversation Memory / Chat
 # ──────────────────────────────────────────────
 
+
+
+_SESSION_CREATE_TIMES: list[float] = []
+MAX_ACTIVE_SESSIONS = int(os.getenv("AAIS_MAX_SESSIONS", "500"))
+SESSION_RATE_PER_MINUTE = 60
+
+
+def _check_session_rate_limit() -> None:
+    now = time.time()
+    _SESSION_CREATE_TIMES.append(now)
+    while _SESSION_CREATE_TIMES and now - _SESSION_CREATE_TIMES[0] > 60:
+        _SESSION_CREATE_TIMES.pop(0)
+    if len(_SESSION_CREATE_TIMES) >= SESSION_RATE_PER_MINUTE:
+        raise RuntimeError("Session creation rate limit reached (60/min).")
+
+
+def _enforce_max_sessions() -> None:
+    active = conversation_memory.list_sessions()
+    if len(active) >= MAX_ACTIVE_SESSIONS:
+        oldest = sorted(active, key=lambda sess: getattr(sess, "updated_at", datetime.now(UTC)))
+        for stale in oldest[: max(1, len(oldest) - MAX_ACTIVE_SESSIONS + 10)]:
+            conversation_memory.delete_session(stale.session_id)
+
+
 def _create_chat_session_from_payload(data: dict | None):
     """Create one session from the canonical chat-session payload."""
     payload = dict(data or {})
+    # nx caps: sane limits for a single-operator system
+    title = payload.get("title")
+    if isinstance(title, str) and len(title) > 200:
+        payload["title"] = title[:200]
+    _check_session_rate_limit()
+    _enforce_max_sessions()
     persona_mode = normalize_persona_mode(payload.get("persona_mode"))
     companion_profile = _get_companion_surface_profile(persona_mode=persona_mode)
     system_prompt = companion_profile["system_prompt"] if companion_profile else payload.get("system_prompt")
@@ -16541,6 +16921,7 @@ def chat_message(session_id):
                 }
             ), status
 
+        _issue_organism_receipt(session, user_message, response_text)
         return jsonify({
             "response": response_text,
             **_build_chat_runtime_payload(
@@ -16960,6 +17341,7 @@ def chat_message_stream(session_id):
                             "tool_result": direct_tool,
                         },
                     )
+                    _issue_organism_receipt(session, user_message, response_text)
                     if direct_tool.get("type") in {"action_request", "action_result"}:
                         _refresh_action_lifecycle(session)
                     _consume_mode_freeze(session)
@@ -17537,6 +17919,7 @@ def chat_message_stream(session_id):
                     "tool_result": None,
                 },
             )
+            _issue_organism_receipt(session, user_message, full_response or response_text)
             _consume_mode_freeze(session)
             final_event = _record_session_event(
                 session,
@@ -18025,32 +18408,124 @@ def ask_documents():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/jarvis/categories", methods=["GET"])
+def list_memory_categories():
+    """Modular memory categories (auto-discovered from src/categories)."""
+    return jsonify({
+        "categories": [
+            {
+                **cat,
+                **category_manager.defaults_for(cat["name"]),
+            }
+            for cat in category_manager.list()
+        ]
+    })
+
+
+# ──────────────────────────────────────────────
+# Text-to-Speech (Piper)
+# ──────────────────────────────────────────────
+
+@app.route("/api/audio/tts", methods=["POST"])
+@app.route("/legacy_api/api/audio/tts", methods=["POST"])
+def tts_audio():
+    """Synthesize speech audio (WAV) from text via Piper."""
+    try:
+        data = request.get_json(silent=True) or {}
+        text = str(data.get("text") or "").strip()
+        if not text:
+            return jsonify({"error": "text is required"}), 400
+        speech_module = _load_module("src.speech")
+        wav_bytes = speech_module.text_to_speech.synthesize_to_wav_bytes(text[:2000])
+        return Response(wav_bytes, mimetype="audio/wav")
+    except Exception as e:
+        logger.error(f"Error in tts_audio: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # ──────────────────────────────────────────────
 # Speech-to-Text (Whisper)
 # ──────────────────────────────────────────────
 
 @app.route("/api/audio/transcribe", methods=["POST"])
+@app.route("/legacy_api/api/audio/transcribe", methods=["POST"])
 def transcribe_audio():
-    """Transcribe audio file to text"""
+    """Compatibility adapter; FastAPI owns the canonical unprefixed route."""
     try:
+        from src.transcription_policy import (
+            AudioValidationError,
+            AudioUploadTooLarge,
+            TranscriptionAccessDenied,
+            TranscriptionRateLimited,
+            build_transcription_error_receipt,
+            enforce_transcription_rate_limit,
+            read_audio_bounded,
+            require_transcription_access,
+            validate_pcm16_wav,
+            validate_wav_content_type,
+        )
+
+        try:
+            require_transcription_access(
+                authorization=request.headers.get("Authorization"),
+                client_host=request.remote_addr,
+                forwarded_for=request.headers.get("X-Forwarded-For"),
+            )
+            enforce_transcription_rate_limit(
+                authorization=request.headers.get("Authorization"),
+                client_host=request.remote_addr,
+                forwarded_for=request.headers.get("X-Forwarded-For"),
+            )
+        except TranscriptionAccessDenied as exc:
+            return jsonify({"error": str(exc)}), exc.status_code
+        except TranscriptionRateLimited as exc:
+            return (
+                jsonify({"error": str(exc), "retry_after": exc.retry_after_seconds}),
+                exc.status_code,
+                {"Retry-After": str(exc.retry_after_seconds)},
+            )
+
         if "audio" not in request.files:
             return jsonify({"error": "Audio file is required"}), 400
 
-        speech_module = _load_module("src.speech")
-        speech_to_text = speech_module.speech_to_text
+        from src.transcription_service import transcribe_audio_with_shadow
+
         audio_file = request.files["audio"]
         language = request.form.get("language")
-
-        # Determine file extension
         filename = audio_file.filename or "audio.wav"
-        suffix = os.path.splitext(filename)[1] or ".wav"
-
-        audio_bytes = audio_file.read()
-        result = speech_to_text.transcribe_bytes(
-            audio_bytes, suffix=suffix, language=language
+        content_type = getattr(audio_file, "content_type", None) or getattr(
+            audio_file, "mimetype", None
+        )
+        validate_wav_content_type(content_type, filename)
+        audio_bytes = read_audio_bounded(audio_file)
+        validate_pcm16_wav(
+            audio_bytes,
+            content_type=content_type,
+            filename=filename,
+        )
+        result = transcribe_audio_with_shadow(
+            audio_bytes,
+            filename=filename,
+            language=language,
+            content_type=content_type or "audio/wav",
         )
         return jsonify(result)
 
+    except AudioValidationError as e:
+        receipt = build_transcription_error_receipt(
+            e,
+            filename=locals().get("filename", "audio.wav"),
+            content_type=locals().get("content_type"),
+            audio_bytes=locals().get("audio_bytes"),
+        )
+        logger.warning(
+            "transcription_audit event=upload_refused code=%s receipt_id=%s",
+            e.code,
+            receipt["receiptId"],
+        )
+        return jsonify({"error": str(e), "receipt": receipt}), e.status_code
+    except AudioUploadTooLarge as e:
+        return jsonify({"error": str(e), "max_audio_bytes": e.max_audio_bytes}), 413
     except Exception as e:
         logger.error(f"Error in transcribe_audio: {e}")
         return jsonify({"error": str(e)}), 500

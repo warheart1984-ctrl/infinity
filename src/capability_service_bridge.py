@@ -29,7 +29,7 @@ from src.phase_gate import (
 
 
 BRIDGE_ID = "aais.capability_service_bridge"
-BRIDGE_VERSION = "0.2"
+BRIDGE_VERSION = "0.3-amul"
 BRIDGE_COMPONENT_ID = "jarvis.capability_service_bridge"
 MAX_AUDIT_EVENTS = 50
 DEFAULT_GOVERNANCE_MODES = ("strict", "assist", "experimental")
@@ -1352,6 +1352,7 @@ class CapabilityServiceBridge:
                 ],
                 "available_capabilities": available_capabilities,
                 "module_health": self._module_health_snapshot(),
+                "amul": self.amul_state(),
                 "phase_gate": {
                     "bridge": self._phase_component_state(BRIDGE_COMPONENT_ID, OPERATOR_PHASE_CONTEXT),
                     "capabilities": {
@@ -1421,6 +1422,80 @@ class CapabilityServiceBridge:
         return wrap_runtime_snapshot(
             self._build_execution_preview(spec, execution_profile)
         )
+
+    # Mythic: the AMUL membrane — Jarvis speaks to the world only through it.
+    def _amul_membrane(self):
+        if getattr(self, "_amul", None) is None:
+            from src.capability_service_bridge_amul import AmulMembrane, CapabilityContract
+
+            membrane = AmulMembrane()
+            for route_spec in self._route_specs:
+                membrane.register_contract(CapabilityContract.from_route_spec(route_spec))
+            self._amul = membrane
+        return self._amul
+
+    def execute_amul(
+        self,
+        capability_id: str,
+        action: str,
+        *,
+        args: dict[str, Any] | None = None,
+        justification: Any = None,
+        governance_mode: str = "strict",
+        execution_profile: dict[str, Any] | None = None,
+        runtime_context: str = OPERATOR_PHASE_CONTEXT,
+    ) -> dict[str, Any]:
+        """Invoke one capability through the AMUL constitutional membrane.
+
+        Returns a governed result carrying value, evidence, replay, and
+        constitutional_state plus accept/reject/escalate decision support.
+        """
+        from src.capability_service_bridge_amul import Justification
+
+        membrane = self._amul_membrane()
+        if justification is not None and not isinstance(justification, Justification):
+            justification = Justification(
+                intent=str(justification.get("intent") or ""),
+                rationale=str(justification.get("rationale") or ""),
+                operator_id=str(justification.get("operator_id") or "operator"),
+                session_id=str(justification.get("session_id") or ""),
+            )
+        normalized_capability = _normalize_name(capability_id)
+        normalized_action = _normalize_name(action)
+        spec = self._selection_routes.get((normalized_capability, normalized_action))
+        deterministic_hint = None
+        if spec:
+            provider_modes = tuple(spec.get("provider_modes") or ())
+            deterministic_hint = provider_modes == ("deterministic",)
+        return membrane.invoke(
+            normalized_capability,
+            normalized_action,
+            dict(args or {}),
+            executor=lambda run_args: self.execute_selection(
+                capability_id,
+                action,
+                args=run_args,
+                execution_profile=execution_profile,
+                runtime_context=runtime_context,
+            ),
+            justification=justification,
+            governance_mode=governance_mode,
+            constraints={"runtime_context": runtime_context},
+            deterministic_hint=deterministic_hint,
+        )
+
+    def amul_state(self) -> dict[str, Any]:
+        """Expose AMUL membrane state for runtime inspection."""
+        try:
+            membrane = self._amul_membrane()
+        except Exception:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "membrane_version": "0.1-amul",
+            "contract_count": len(membrane.contracts()),
+            "replay": membrane.replay.state(),
+        }
 
     def _prepare_args_for_selection(self, spec: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
         capability_id = spec["capability_id"]

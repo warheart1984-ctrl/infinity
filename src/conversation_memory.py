@@ -2,10 +2,13 @@
 
 # Mythic: Conversation Memory Organ
 # Engineering: ConversationMemoryEngine
+import json
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from src.datetime_compat import UTC
+import os
 import re
 import threading
 import uuid
@@ -615,13 +618,15 @@ MODE_RECOMMENDATION_HINTS = {
 
 def normalize_persona_mode(mode: str | None) -> str:
     """Normalize persona mode values to the supported set."""
+    # Nova retirement: the companion lanes (Tiny/Small/Super Nova) are folded
+    # into Jarvis. Any legacy persona request resolves to the builder surface;
+    # their response-mode coercions become inert because the personas can no
+    # longer be entered.
     cleaned = _normalize_mode_token(mode)
-    if cleaned in {"tiny nova", "tinynova"}:
-        cleaned = "tiny_nova"
-    elif cleaned in {"small nova", "smallnova"}:
-        cleaned = "small_nova"
-    elif cleaned in {"super nova", "supernova"}:
-        cleaned = "super_nova"
+    if cleaned in {"tiny nova", "tinynova", "tiny_nova",
+                   "small nova", "smallnova", "small_nova",
+                   "super nova", "supernova", "super_nova"}:
+        return "builder"
     return cleaned if cleaned in PERSONA_DIRECTIVES else "builder"
 
 
@@ -1151,6 +1156,54 @@ class ConversationTurn:
         }
 
 
+def _nx_drive_context_block(user_message: str) -> str:
+    """Query nx-search (local drive index) for context relevant to the message.
+
+    Returns '' when disabled, unreachable, or nothing found. Never raises.
+    """
+    import json as _json
+    import urllib.request
+
+    if os.getenv("AAIS_DRIVE_CONTEXT", "1").strip().lower() in {"0", "false", "off"}:
+        return ""
+    message = " ".join(str(user_message or "").split()).strip()
+    if len(message) < 4:
+        return ""
+    base = os.getenv("AAIS_NX_SEARCH_URL", "http://127.0.0.1:7788").rstrip("/")
+    cached = _NX_CACHE.get(message)
+    if cached is not None:
+        return cached
+    try:
+        req = urllib.request.Request(
+            f"{base}/api/search?q={urllib.parse.quote(message)}&limit=4",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        results = [r for r in (data.get("results") or []) if r.get("path")]
+        if not results:
+            block = ""
+        else:
+            lines = [
+                "DRIVE CONTEXT — excerpts from the operator's local files "
+                "(cite paths verbatim when used):"
+            ]
+            for i, r in enumerate(results[:3], start=1):
+                snippet = " ".join(str(r.get("snippet") or "").split())[:150]
+                lines.append(f"[D{i}] {r['path']}\n{snippet}")
+            block = "\n".join(lines)
+    except Exception as exc:
+        logger.warning(f"nx drive context lookup failed: {exc}")
+        block = ""
+    _NX_CACHE[message] = block
+    if len(_NX_CACHE) > 128:
+        _NX_CACHE.pop(next(iter(_NX_CACHE)))
+    return block
+
+
+_NX_CACHE = {}
+
+
 class ConversationSession:
     """A conversation session with history and Spiral-inspired runtime state."""
 
@@ -1164,6 +1217,7 @@ class ConversationSession:
     ):
         self.session_id = session_id
         self.max_turns = max_turns
+        self.system_prompt = system_prompt
         self._memory_enforcer = memory_enforcer
         self.turns = []
         self.created_at = datetime.now(UTC)
@@ -1172,8 +1226,10 @@ class ConversationSession:
             "persona_mode": "builder",
             "requested_response_mode": "fast",
             "response_mode": "fast",
-            "preferred_provider": "local",
-            "provider_mode": derive_provider_mode("local", "local"),
+            "preferred_provider": (os.getenv("AAIS_DEFAULT_PROVIDER") or "local").strip().lower(),
+            "provider_mode": derive_provider_mode(
+                (os.getenv("AAIS_DEFAULT_PROVIDER") or "local").strip().lower(), "local"
+            ),
             "provider_fallback": "local",
             "provider_notice": None,
             "requested_specialists": [],
@@ -1750,6 +1806,9 @@ class ConversationSession:
         )
         relational_active = str(self.metadata.get("prompt_lane") or "").strip().lower() == "relational"
         latest_user_message = _latest_user_turn_text(turns)
+        nx_drive_block = _nx_drive_context_block(latest_user_message)
+        if nx_drive_block:
+            self.metadata["nx_drive_context_block"] = nx_drive_block
         context_priority_guard = dict(
             self.metadata.get("context_priority_guard")
             or build_current_turn_priority_guard(
@@ -1759,6 +1818,7 @@ class ConversationSession:
             )
         )
 
+        logger.info(f"NXDEBUG build_messages: nx_block_len={len(nx_drive_block or '')} turns={len(turns)} persona={self.metadata.get('persona_mode')} companion={companion_active}")
         seed_seen = False
         for index, turn in enumerate(turns):
             raw_content = str(turn.content or "").strip()
@@ -1933,6 +1993,18 @@ class ConversationSession:
                 }
             )
 
+        if nx_drive_block and not companion_active:
+            system_blocks.append(
+                {
+                    "identity": "nx_drive_context",
+                    "role": "system",
+                    "content": nx_drive_block,
+                    "channel": "drive_context",
+                    "source": "nx_drive_context_block",
+                    "priority": 34,
+                }
+            )
+
         assembled_blocks, report = assemble_prompt_blocks(
             list(system_blocks) + list(extra_system_blocks or []),
             prompt_token_budget=max_tokens_estimate,
@@ -1968,6 +2040,9 @@ class ConversationSession:
         )
         relational_active = str(self.metadata.get("prompt_lane") or "").strip().lower() == "relational"
         latest_user_message = _latest_user_turn_text(turns)
+        nx_drive_block = _nx_drive_context_block(latest_user_message)
+        if nx_drive_block:
+            self.metadata["nx_drive_context_block"] = nx_drive_block
         context_priority_guard = dict(
             self.metadata.get("context_priority_guard")
             or build_current_turn_priority_guard(
@@ -2157,6 +2232,18 @@ class ConversationSession:
                 }
             )
 
+        if nx_drive_block and not companion_active:
+            system_blocks.append(
+                {
+                    "identity": "nx_drive_context",
+                    "role": "system",
+                    "content": nx_drive_block,
+                    "channel": "drive_context",
+                    "source": "nx_drive_context_block",
+                    "priority": 34,
+                }
+            )
+
         assembled_blocks, report = assemble_prompt_blocks(
             list(system_blocks) + list(extra_system_blocks or []),
             prompt_token_budget=max_tokens_estimate,
@@ -2302,15 +2389,148 @@ class ConversationMemory:
 
     def __init__(self, max_sessions: int = 1000, session_ttl_hours: int = 24, max_turns: int = 50):
         self.max_sessions = max_sessions
-        self.session_ttl = timedelta(hours=session_ttl_hours)
+        self.session_ttl = timedelta(
+            hours=float(os.getenv("AAIS_SESSION_TTL_HOURS", "") or session_ttl_hours)
+        )
         self.max_turns = max_turns
         self.sessions = OrderedDict()
         self._lock = threading.Lock()
         self._memory_enforcer = None
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except Exception:
+            pass
+        self._persist_enabled = os.getenv("AAIS_PERSIST_SESSIONS", "").strip().lower() in {
+            "1", "true", "yes", "on"
+        }
+        self._persist_path = (
+            Path(os.getenv("AAIS_SESSION_SNAPSHOT_PATH", ""))
+            if os.getenv("AAIS_SESSION_SNAPSHOT_PATH")
+            else Path(__file__).resolve().parent.parent / ".local" / "conversation_sessions.json"
+        )
+        self._last_save_signature = None
+        if self._persist_enabled:
+            self._load_snapshot()
+            self._autosave_stop = threading.Event()
+            threading.Thread(
+                target=self._autosave_loop,
+                daemon=True,
+                name="nx-session-autosave",
+            ).start()
 
     def bind_memory_enforcer(self, enforcer) -> None:
         """Route durable conversation writes through the governed memory board gateway."""
         self._memory_enforcer = enforcer
+
+    def _current_signature(self):
+        return tuple(
+            sorted(
+                (sid, str(getattr(s, "updated_at", "")), len(getattr(s, "turns", []) or []))
+                for sid, s in self.sessions.items()
+            )
+        )
+
+    def _autosave_loop(self):
+        """Debounced durability: catch every mutation path within ~10s."""
+        while not self._autosave_stop.wait(10):
+            if os.getenv("AAIS_PERSIST_SESSIONS", "").strip().lower() in {"1","true","yes","on"}:
+                self._persist_enabled = True
+            try:
+                with self._lock:
+                    sig = self._current_signature()
+                    if sig != self._last_save_signature:
+                        self._snapshot_to_disk_locked()
+                        self._last_save_signature = sig
+            except Exception as exc:
+                logger.warning(f"Session autosave failed: {exc}")
+
+    def _snapshot_to_disk(self):
+        """Write all live sessions to disk (AAIS_PERSIST_SESSIONS=1)."""
+        if not self._persist_enabled:
+            return
+        with self._lock:
+            self._snapshot_to_disk_locked()
+            self._last_save_signature = self._current_signature()
+
+    def _snapshot_to_disk_locked(self):
+        try:
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = []
+            for sid, sess in self.sessions.items():
+                payload.append(
+                    {
+                        "session_id": sid,
+                        "system_prompt": getattr(sess, "system_prompt", None),
+                        "created_at": sess.created_at.isoformat(),
+                        "updated_at": sess.updated_at.isoformat(),
+                        "max_turns": sess.max_turns,
+                        "turns": [
+                            {
+                                "role": getattr(t, "role", "user"),
+                                "content": getattr(t, "content", ""),
+                                "timestamp": str(getattr(t, "timestamp", "") or ""),
+                            }
+                            for t in list(getattr(sess, "turns", []) or [])[-200:]
+                        ],
+                        "metadata": {
+                            k: v
+                            for k, v in (sess.metadata or {}).items()
+                            if isinstance(v, (str, int, float, bool, list, dict))
+                        },
+                    }
+                )
+            tmp = self._persist_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(self._persist_path)
+        except Exception as exc:
+            logger.warning(f"Session snapshot failed: {exc}")
+
+    def _load_snapshot(self):
+        """Restore sessions from the last snapshot (AAIS_PERSIST_SESSIONS=1)."""
+        try:
+            if not self._persist_path.exists():
+                return
+            raw = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            restored = 0
+            for item in raw if isinstance(raw, list) else []:
+                try:
+                    sess = ConversationSession(
+                        session_id=item["session_id"],
+                        max_turns=int(item.get("max_turns") or self.max_turns),
+                        system_prompt=item.get("system_prompt"),
+                        memory_enforcer=self._memory_enforcer,
+                    )
+                    sess.created_at = datetime.fromisoformat(item.get("created_at")) if item.get("created_at") else sess.created_at
+                    sess.updated_at = datetime.fromisoformat(item.get("updated_at")) if item.get("updated_at") else sess.updated_at
+                    sess.turns = [
+                        ConversationTurn(
+                            role=str(t.get("role") or "user"),
+                            content=str(t.get("content") or ""),
+                            metadata=t.get("metadata") if isinstance(t.get("metadata"), dict) else None,
+                        )
+                        for t in (item.get("turns") or [])
+                        if isinstance(t, dict)
+                    ]
+                    meta = item.get("metadata") or {}
+                    if isinstance(meta, dict) and meta:
+                        sess.metadata.update(meta)
+                    # Nova retirement: restored sessions never re-enter companion lanes.
+                    if str(sess.metadata.get("persona_mode") or "").endswith("_nova"):
+                        sess.metadata["persona_mode"] = "builder"
+                    for lane_key in ("provider_notice", "nova_narrative_id"):
+                        sess.metadata.pop(lane_key, None)
+                    sess.metadata["response_mode"] = (
+                        "fast" if str(sess.metadata.get("response_mode")) in {"tiny", "small"} 
+                        else sess.metadata.get("response_mode")
+                    )
+                    self.sessions[sess.session_id] = sess
+                    restored += 1
+                except Exception as exc:
+                    logger.warning(f"Skipping bad session snapshot entry: {exc}")
+            logger.info(f"Session snapshot restored {restored} sessions")
+        except Exception as exc:
+            logger.warning(f"Session snapshot load failed: {exc}")
 
     def create_session(self, system_prompt: str = None) -> str:
         """Create a new conversation session and return its ID."""
@@ -2324,6 +2544,7 @@ class ConversationMemory:
                 memory_enforcer=self._memory_enforcer,
             )
             logger.info(f"Created conversation session: {session_id}")
+            self._snapshot_to_disk_locked()
             return session_id
 
     def get_session(self, session_id: str) -> ConversationSession:
@@ -2343,6 +2564,8 @@ class ConversationMemory:
             return False
         session.add_turn("user", user_message)
         session.add_turn("assistant", assistant_response)
+        if getattr(self, "_persist_enabled", False):
+            self._snapshot_to_disk_locked()
         return True
 
     def delete_session(self, session_id: str) -> bool:
@@ -2351,6 +2574,8 @@ class ConversationMemory:
             if session_id in self.sessions:
                 del self.sessions[session_id]
                 logger.info(f"Deleted session: {session_id}")
+                if getattr(self, "_persist_enabled", False):
+                    self._snapshot_to_disk_locked()
                 return True
             return False
 

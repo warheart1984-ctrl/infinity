@@ -93,6 +93,7 @@ function MemoryBank() {
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryRegistry, setCategoryRegistry] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortMode, setSortMode] = useState('priority');
   const [selectedMemoryId, setSelectedMemoryId] = useState('');
@@ -163,15 +164,27 @@ function MemoryBank() {
     }));
   }, [selectedMemory]);
 
+  useEffect(() => {
+    let active = true;
+    fetch('/legacy_api/api/jarvis/categories')
+      .then((r) => r.json())
+      .then((j) => { if (active && Array.isArray(j.categories)) setCategoryRegistry(j.categories); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   const availableCategories = useMemo(() => {
-    const categories = new Set(COMMON_CATEGORIES);
+    const categories = new Set([
+      ...categoryRegistry.map((c) => c.name),
+      ...COMMON_CATEGORIES,
+    ]);
     memories.forEach((memory) => {
       if (memory.category) {
         categories.add(memory.category);
       }
     });
     return Array.from(categories);
-  }, [memories]);
+  }, [memories, categoryRegistry]);
 
   const summary = useMemo(() => {
     const activeCount = memories.filter((memory) => memory.active !== false).length;
@@ -386,9 +399,14 @@ function MemoryBank() {
         <div className="memory-filter-grid">
           <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
             <option value="">All categories</option>
-            {availableCategories.map((category) => (
-              <option key={category} value={category}>{category}</option>
-            ))}
+            {availableCategories.map((category) => {
+              const meta = categoryRegistry.find((c) => c.name === category);
+              return (
+                <option key={category} value={category}>
+                  {meta ? `${meta.icon} ${meta.label}` : category}
+                </option>
+              );
+            })}
           </select>
           <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value)}>
             <option value="all">All states</option>
@@ -414,7 +432,7 @@ function MemoryBank() {
               <span>Memory List</span>
               <h2>Durable notes and overrides</h2>
             </div>
-            <Link className="memory-panel-link" to="/">Back to Nova</Link>
+            <Link className="memory-panel-link" to="/">Back to Console</Link>
           </div>
           {loading ? (
             <div className="memory-empty">Loading memories…</div>
@@ -632,10 +650,10 @@ function MemoryBank() {
       </div>
 
       <datalist id="memory-category-options">
-        {availableCategories.map((category) => (
-          <option key={category} value={category} />
-        ))}
-      </datalist>
+                {categoryRegistry.map((c) => (
+                  <option key={c.name} value={c.name}>{c.icon} {c.label}</option>
+                ))}
+              </datalist>
     </section>
   );
 }

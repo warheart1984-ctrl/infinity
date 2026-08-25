@@ -17,7 +17,7 @@
     ],
     "invariants": [
       {
-        "text": "Wake is read-only \u2014 no lane mutation without MP-X",
+        "text": "Wake is read-only — no lane mutation without MP-X",
         "maturity": "constitutional"
       },
       {
@@ -88,7 +88,7 @@
   "activation": {
     "order": 1,
     "batch_id": "alt6-summon-wave-2026-06",
-    "notes": "Alt-6 \u2014 Tier 5 operator lanes wake into live runtime"
+    "notes": "Alt-6 — Tier 5 operator lanes wake into live runtime"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md",
@@ -100,7 +100,7 @@
         "proposal_id": "MP-ALO-001",
         "status": "promoted",
         "schema_delta_ref": "schemas/deltas/adaptive_lane_organ_MP-ALO-001.json",
-        "notes": "backup: .runtime\\governance\\mutation_backups\\adaptive_lane_organ_20260602T231853Z.genome.v1.json"
+        "notes": "backup: .runtime/governance/mutation_backups/adaptive_lane_organ_20260602T231853Z.genome.v1.json"
       }
     ]
   },

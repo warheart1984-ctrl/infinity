@@ -144,3 +144,22 @@ deploy/amplify/node_modules/
 deploy/amplify/.amplify/
 deploy/amplify/amplify_outputs.json
 frontend/src/amplify_outputs.json
+
+# nx: secrets & env — never commit
+.env
+.env.*
+*.key
+provider_keys.json
+
+# nx: build artifacts & vendored runtimes
+app/static/
+app/static.old/
+retired/
+node_modules/
+
+# nx: heavyweight subproject envs
+jarvis-memoryboard/.venv/
+jarvis-memoryboard/data/emr-dynamics.json
+
+# nx: embedded project repos (own lifecycle)
+Actor-OS/

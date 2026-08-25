@@ -1,3 +1,5 @@
+import RuntimePanel from '../components/RuntimePanel';
+const DEV_MODE = typeof localStorage !== 'undefined' && localStorage.getItem('aais_dev_mode') === '1';
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -147,16 +149,6 @@ const SPECIALIST_SELECTION_LIMIT = 6;
 
 const personaModes = [
   {
-    id: 'small_nova',
-    label: 'Small Nova',
-    blurb: 'Calm, grounded, and companion-led with a little more depth.',
-  },
-  {
-    id: 'tiny_nova',
-    label: 'Tiny Nova',
-    blurb: 'Minimal, warm, and present-focused with one insight at a time.',
-  },
-  {
     id: 'builder',
     label: 'Builder',
     blurb: 'Ship fast with practical next steps.',
@@ -179,12 +171,7 @@ const personaModes = [
 ];
 
 const responseModes = [
-  {
-    id: 'small',
-    label: 'Small',
-    blurb: 'Keep the reply grounded, calm, and companion-sized.',
-  },
-  {
+    {
     id: 'tiny',
     label: 'Tiny',
     blurb: 'Keep the reply small, gentle, and narrowly focused.',
@@ -3393,7 +3380,7 @@ function CapabilityBridgeConsoleCard({
                 onRunAction={onRunAction}
                 actionBusyId={actionBusyId}
               />
-              {latestExecution.response_trace ? (
+              {latestExecution.response_trace && DEV_MODE ? (
                 <ResponseTraceCard responseTrace={latestExecution.response_trace} />
               ) : null}
               <UlTraceBlock
@@ -5576,7 +5563,7 @@ function ConversationMessage({
       <div className="message-bubble">
         {message.role === 'assistant' && (
           <>
-            <ResponseTraceCard responseTrace={message.responseTrace} />
+            {DEV_MODE ? <ResponseTraceCard responseTrace={message.responseTrace} /> : null}
             <ContextCards
               workspaceContext={message.workspaceContext}
               liveResearch={message.liveResearch}
@@ -5604,6 +5591,7 @@ function ConversationMessage({
 
 function JarvisConsole() {
   const [profile, setProfile] = useState(() => getJarvisProfile());
+  const [showRuntimePanel, setShowRuntimePanel] = useState(false);
   const [sessionId, setSessionId] = useState('');
   const [recentSessions, setRecentSessions] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -5709,6 +5697,10 @@ function JarvisConsole() {
   const [evolveHallOfShame, setEvolveHallOfShame] = useState([]);
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const speakReplyAudioRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingChunksRef = useRef(null);
   const streamAbortRef = useRef(null);
   const fileIntakeRef = useRef(null);
   const selectedSpecialistsRef = useRef([]);
@@ -6478,11 +6470,40 @@ function JarvisConsole() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
 
-  const speakReply = (text) => {
-    if (!profile.voiceOutputEnabled || !window.speechSynthesis) {
+  const speakReply = async (text) => {
+    if (!profile.voiceOutputEnabled) {
       return;
     }
 
+    // Prefer the backend neural voice (Piper); fall back to browser speech.
+    try {
+      if (speakReplyAudioRef.current) {
+        speakReplyAudioRef.current.pause();
+        speakReplyAudioRef.current = null;
+      }
+      const ttsBase = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+      const response = await fetch(
+        `${ttsBase}/api/audio/tts`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: String(text || '').slice(0, 2000) }),
+        },
+      );
+      if (response.ok) {
+        const blob = await response.blob();
+        const audio = new Audio(URL.createObjectURL(blob));
+        speakReplyAudioRef.current = audio;
+        await audio.play();
+        return;
+      }
+    } catch {
+      // fall through to browser speech
+    }
+
+    if (!window.speechSynthesis) {
+      return;
+    }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
@@ -6883,45 +6904,119 @@ function JarvisConsole() {
     }
   };
 
-  const handleVoiceCapture = () => {
+  const transcribeBlobViaWhisper = async (blob) => {
+    const base = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+    const form = new FormData();
+    form.append('audio', blob, blob.type.includes('mp4') ? 'speech.mp4' : 'speech.webm');
+    form.append('language', 'en');
+    const response = await fetch(`${base}/api/audio/transcribe`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!response.ok) {
+      throw new Error(`Transcription failed (${response.status})`);
+    }
+    return String((await response.json()).text || '').trim();
+  };
+
+  const stopWhisperRecording = () => {
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
+  };
+
+  const handleVoiceCapture = async () => {
     if (!profile.voiceInputEnabled) {
       toast.error('Voice input is turned off in your Jarvis profile.');
       return;
     }
 
-    if (!voiceSupported) {
-      toast.error('Speech recognition is not supported in this browser.');
-      return;
-    }
-
-    if (listening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      return;
-    }
-
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new Recognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => setListening(true);
-    recognition.onerror = () => {
-      setListening(false);
-      toast.error('Voice capture failed. Try again.');
-    };
-    recognition.onend = () => setListening(false);
-    recognition.onresult = (event) => {
-      const spokenText = event.results?.[0]?.[0]?.transcript?.trim();
-      if (!spokenText) {
-        return;
+    // Active capture? A second tap stops it (both modes).
+    if (listening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
-      setDraft(spokenText);
-      handleSend(spokenText);
-    };
+      if (mediaRecorderRef.current?.state === 'recording') {
+        stopWhisperRecording();
+      }
+      return;
+    }
 
-    recognitionRef.current = recognition;
-    recognition.start();
+    // Path A: browser speech recognition (Chrome / Edge).
+    if (voiceSupported) {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new Recognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => setListening(true);
+      recognition.onerror = () => {
+        setListening(false);
+        toast.error('Voice capture failed. Try again.');
+      };
+      recognition.onend = () => setListening(false);
+      recognition.onresult = (event) => {
+        const spokenText = event.results?.[0]?.[0]?.transcript?.trim();
+        if (!spokenText) {
+          return;
+        }
+        setDraft(spokenText);
+        handleSend(spokenText);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      return;
+    }
+
+    // Path B: any browser (Firefox included) — record mic, transcribe with
+    // server-side Whisper, then send the text as a normal turn.
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      toast.error('No microphone API available in this browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingChunksRef.current = [];
+      recordingStreamRef.current = stream;
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setListening(false);
+        const blob = new Blob(recordingChunksRef.current || [], {
+          type: recorder.mimeType || 'audio/webm',
+        });
+        mediaRecorderRef.current = null;
+        if (blob.size < 1200) {
+          toast.error('Heard nothing usable — hold the mic longer.');
+          return;
+        }
+        toast.loading('Transcribing with Whisper…', { id: 'whisper' });
+        try {
+          const spokenText = await transcribeBlobViaWhisper(blob);
+          toast.success('Transcribed', { id: 'whisper' });
+          if (!spokenText) return;
+          setDraft(spokenText);
+          handleSend(spokenText);
+        } catch (err) {
+          toast.error(`Whisper transcription failed: ${getApiErrorMessage(err)}`, { id: 'whisper' });
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setListening(true);
+      toast('Recording… tap the mic again to send.', { icon: '🎙️' });
+    } catch (permissionError) {
+      toast.error('Microphone permission denied.');
+    }
   };
 
   const handleRunMysticReading = async () => {
@@ -7680,8 +7775,7 @@ function JarvisConsole() {
   const activeOperatingMode = resolveOperatingModeDisplay(profile, sessionRuntime, {
     forceRuntimeMode: sending || booting,
   });
-  const companionNovaActive = [SMALL_NOVA_PERSONA_MODE, TINY_NOVA_PERSONA_MODE].includes(activePersona)
-    || ['small', 'tiny'].includes(selectedResponseMode);
+  const companionNovaActive = false; // Nova decommissioned: single Jarvis surface
   const activeResponseTrace = sessionRuntime.responseTrace;
   const latestSessionEvent = sessionEvents[0] || null;
   const availableProviders = useMemo(() => {
@@ -7864,9 +7958,7 @@ function JarvisConsole() {
           )}
             <h1>{profile.assistantName} | Operator Cockpit</h1>
           <p>
-            {companionNovaActive
-              ? 'Nova holds the cognitive lane in the center deck while Jarvis keeps authority, approvals, routing, and operational state on the control side. Tools stay visible.'
-              : 'This cockpit keeps cognition, authority, and tools separate: Nova handles the soft working lane, Jarvis keeps operational control, and system tools remain continuously accessible.'}
+            {'Jarvis holds the full cognitive lane — authority, approvals, routing, and operations in one cockpit. Tools stay visible.'}
           </p>
 
           <div className="jarvis-hero-actions">
@@ -8089,7 +8181,7 @@ function JarvisConsole() {
         <div className="jarvis-chat-shell page-panel">
           <div className="jarvis-chat-header">
             <div>
-              <h2>Nova Surface</h2>
+              <h2>Operator Surface</h2>
               <p>Cognitive interface · Session {sessionId || 'starting...'}</p>
             </div>
             <div className="jarvis-chat-health">
@@ -8410,7 +8502,7 @@ function JarvisConsole() {
                     onChange={toggleDeepCompose}
                   />
                   <span>
-                    Deep compose — run full Nova Cortex on operator turns (Spine, ARIS, all lobes).
+                    Deep compose — run the full governed pipeline on operator turns.
                   </span>
                 </label>
               )}
@@ -9350,6 +9442,17 @@ function JarvisConsole() {
 
               <button
                 type="button"
+                className={`toggle-pill ${showRuntimePanel ? 'active' : ''}`}
+                onClick={() => setShowRuntimePanel((v) => !v)}
+              >
+                ⚙ Runtime
+              </button>
+              {showRuntimePanel && (
+                <RuntimePanel sessionId={sessionId} onClose={() => setShowRuntimePanel(false)} />
+              )}
+
+              <button
+                type="button"
                 className={`toggle-pill ${profile.liveResearchEnabled ? 'active' : ''}`}
                 onClick={() => setProfile((current) => ({
                   ...current,
@@ -9416,7 +9519,7 @@ function JarvisConsole() {
               <strong>{getSystemGuardLabel(systemGuard.status)}</strong>
             </div>
             <div className="system-links">
-              <Link to="/">Nova Home</Link>
+              <Link to="/jarvis">Console Home</Link>
               <Link to="/memory">Memory Bank</Link>
               <Link to="/prompt-lab">Prompt Lab</Link>
               <Link to="/history">Memory Log</Link>

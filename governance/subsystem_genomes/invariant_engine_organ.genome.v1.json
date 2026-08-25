@@ -15,7 +15,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only Nova runtime compare \u2014 no autonomous BLOCK",
+      "Read-only Nova runtime compare — no autonomous BLOCK",
       "nova_runtime_consumer attestation on companion path",
       "Fail closed on missing bridge context"
     ]
@@ -59,7 +59,7 @@
   "activation": {
     "order": 3,
     "batch_id": "alt9-summon-wave-2026-06",
-    "notes": "Alt-9 wave 3 \u2014 invariant consumer plane"
+    "notes": "Alt-9 wave 3 — invariant consumer plane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

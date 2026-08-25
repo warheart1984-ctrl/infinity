@@ -120,7 +120,16 @@ def resolve_remote_output_budget(
     )
     prompt_tokens_estimate = int(estimate.get("prompt_tokens") or 0)
     prompt_overflow_tokens = max(0, prompt_tokens_estimate - prompt_token_budget)
-    effective_output_budget = max(32, requested_output_budget - prompt_overflow_tokens)
+
+    # nx fix: honor reply floor; never starve output below it.
+    try:
+        import os as _os
+        output_floor = int(_os.getenv("AAIS_REMOTE_OUTPUT_FLOOR", "") or reply_budget_floor)
+    except ValueError:
+        output_floor = reply_budget_floor
+    output_floor = max(32, output_floor)
+
+    effective_output_budget = max(output_floor, requested_output_budget - prompt_overflow_tokens)
     return _wrap_ul_payload({
         "resolved_provider": _normalize_provider(provider_id),
         "provider_model": str(provider_model or "").strip() or None,

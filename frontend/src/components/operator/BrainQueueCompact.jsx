@@ -8,7 +8,7 @@ export function BrainQueueCompact({ brain }) {
     <section className="workbench-section page-panel" data-testid="infinity1-brain-queue">
       <div className="workbench-section-head">
         <div>
-          <span>Nova Cortex</span>
+          <span>Jarvis Cortex</span>
           <h2>Brain queue</h2>
         </div>
         <Link to="/operator/brain" className="workbench-button ghost">

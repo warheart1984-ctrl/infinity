@@ -28,6 +28,8 @@ class ConstitutionalEcosystemAdoptTests(unittest.TestCase):
             gov / "operator_ecosystem_registry.v1.json",
         )
         self.runtime = ConstitutionalEcosystemRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "ecand_test001",
             "charter_kind": "federated_cluster",

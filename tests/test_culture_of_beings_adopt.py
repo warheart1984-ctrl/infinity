@@ -28,6 +28,8 @@ class CultureOfBeingsAdoptTests(unittest.TestCase):
             gov / "operator_culture_of_beings_registry.v1.json",
         )
         self.runtime = CultureOfBeingsRuntime(runtime_dir=Path(self._tmpdir.name), repo_root=root)
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "ncand_test001",
             "norm_kind": "handoff_ritual",

@@ -25,6 +25,13 @@ def adopted_accords(*, repo_root: Path | None = None) -> list[dict[str, Any]]:
 
 
 def save_adopted_accord(accord: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
+    from src.cen_governance_bridge import validate_law_state_approval
+
+    record = {key: value for key, value in accord.items() if key != "cen_approval"}
+    refusal = validate_law_state_approval(accord.get("cen_approval"), sink="diplomatic_accord", record=record)
+    if refusal:
+        raise PermissionError(f"CEN-dominated law state write refused: {refusal}")
+
     root = repo_root or _repo_root()
     path = root / "governance" / "operator_diplomatic_registry.v1.json"
     doc = load_diplomatic_registry(repo_root=root)

@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from src.invariant_registry import CONSTITUTIONAL_DIMENSIONS
+from src.commit_certificate import CommitCertificate, build_certificate_from_approval
 
 TRANSITION_TYPES = ("state_update", "law_mutation", "runtime_action", "evidence_commit")
 VERDICTS = ("ALLOW", "DENY")
@@ -346,19 +347,26 @@ class ConstitutionalEnforcementNode:
             transition, evaluations, self._decision("ALLOW", "ALLOW", "ALLOWED", "transition admitted by CEN")
         )
 
-    def allow(self, evaluated: dict[str, Any]) -> dict[str, Any]:
-        return self._finish(evaluated, True)
+    def allow(self, evaluated: dict[str, Any], *, certificate: "CommitCertificate | None" = None) -> dict[str, Any]:
+        return self._finish(evaluated, True, certificate=certificate)
 
-    def deny(self, evaluated: dict[str, Any]) -> dict[str, Any]:
-        return self._finish(evaluated, False)
+    def deny(self, evaluated: dict[str, Any], *, certificate: "CommitCertificate | None" = None) -> dict[str, Any]:
+        return self._finish(evaluated, False, certificate=certificate)
 
-    def receipt(self, evaluated: dict[str, Any]) -> dict[str, Any]:
-        return self._create_receipt(evaluated["transition"], evaluated["decision"], evaluated["evaluations"])
+    def receipt(
+        self,
+        evaluated: dict[str, Any],
+        *,
+        certificate: "CommitCertificate | None" = None,
+    ) -> dict[str, Any]:
+        return self._create_receipt(
+            evaluated["transition"], evaluated["decision"], evaluated["evaluations"], certificate=certificate
+        )
 
-    def execute(self, transition: dict[str, Any]) -> dict[str, Any]:
+    def execute(self, transition: dict[str, Any], *, certificate: "CommitCertificate | None" = None) -> dict[str, Any]:
         evaluated = self.evaluate(self.intercept(transition))
         if evaluated["decision"]["verdict"] == "ALLOW":
-            return self.allow(evaluated)
+            return self.allow(evaluated, certificate=certificate)
         return self.deny(evaluated)
 
     def get_state(self, transition_id: str) -> Any:
@@ -369,7 +377,7 @@ class ConstitutionalEnforcementNode:
 
     # ------------------------------------------------------------------ internals
 
-    def _finish(self, evaluated: dict[str, Any], requested_commit: bool) -> dict[str, Any]:
+    def _finish(self, evaluated: dict[str, Any], requested_commit: bool, *, certificate: "CommitCertificate | None" = None) -> dict[str, Any]:
         transition = evaluated["transition"]
         committed = requested_commit and evaluated["decision"]["verdict"] == "ALLOW"
         if committed:
@@ -379,7 +387,7 @@ class ConstitutionalEnforcementNode:
         authority_token = transition.get("authorityToken") or transition.get("authority_token")
         if authority_token and evaluated["decision"]["reasonCode"] != "TOKEN_REPLAYED":
             self._used_authority_tokens.add(str(authority_token.get("tokenId")))
-        receipt = self.receipt(evaluated)
+        receipt = self.receipt(evaluated, certificate=certificate)
         self._ledger.append(receipt)
         return {"decision": evaluated["decision"], "committed": committed, "receipt": receipt}
 
@@ -410,6 +418,8 @@ class ConstitutionalEnforcementNode:
         transition: dict[str, Any],
         decision: dict[str, Any],
         evaluations: list[dict[str, Any]],
+        *,
+        certificate: "CommitCertificate | None" = None,
     ) -> dict[str, Any]:
         previous_hash = self._ledger[-1]["receiptHash"] if self._ledger else None
         context = transition.get("context") or {}
@@ -437,9 +447,25 @@ class ConstitutionalEnforcementNode:
         if authority_token:
             base["authorityTokenId"] = authority_token.get("tokenId")
         receipt_hash = hash_json(base)
-        receipt = {"receiptId": f"cen:{receipt_hash[len('sha3-256:'):]}"} 
+        receipt = {"receiptId": f"cen:{receipt_hash[len("sha3-256:"):]}"} 
         receipt.update(base)
         receipt["receiptHash"] = receipt_hash
+        if certificate is not None:
+            base_cert = {
+                "constitution_hash": certificate.constitution_hash,
+                "invariant_bundle_hash": certificate.invariant_bundle_hash,
+                "caller_principal": certificate.caller_principal,
+                "authority_proof": certificate.authority_proof,
+                "runtime_measurement": certificate.runtime_measurement,
+                "epoch_id": certificate.epoch_id,
+                "previous_receipt_hash": certificate.previous_receipt_hash,
+                "monotonic_position": certificate.monotonic_position,
+                "machine_attestation": certificate.machine_attestation,
+                "trust_manifest_hash": certificate.trust_manifest_hash,
+                "governance_proof": certificate.governance_proof,
+                "resulting_state_hash": certificate.resulting_state_hash,
+            }
+            receipt["commitCertificate"] = base_cert
         return receipt
 
     def _evaluated(

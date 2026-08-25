@@ -6,15 +6,18 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import app
+from lab.routes import router
 
 
 class TestLabHttpRoutes(unittest.TestCase):
     def test_lab_init_and_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             spec_path = Path(__file__).resolve().parents[1] / "lab" / "specs" / "default.yaml"
+            app = FastAPI()
+            app.include_router(router)
             client = TestClient(app)
             init = client.post(
                 "/v1/lab/projects",

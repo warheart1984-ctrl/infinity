@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,7 +21,7 @@ class TestLabReplay(unittest.TestCase):
                     {
                         "manifest_version": "lab.cross_machine.v1",
                         "operational_status": "active_single_machine",
-                        "commands": ["python -c \"print('lab-replay-ok')\""],
+                        "commands": [f"{sys.executable} -c \"print('lab-replay-ok')\""],
                     }
                 ),
                 encoding="utf-8",

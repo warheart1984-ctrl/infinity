@@ -373,10 +373,12 @@ def _build_operator_health_payload() -> dict:
                 )
             }
         )
-        # Ensure overall status reflects legacy bridge health
-        if legacy_ok:
+        # Ensure overall status reflects legacy bridge health. The bridge is
+        # lazy-loaded on first request, so an unexercised bridge with no load
+        # error must not degrade the operator health report.
+        if legacy_ok or legacy_api_bridge.load_error is None:
             payload["status"] = "healthy"
-            payload["service"] = payload.get("service") or "AAIS"
+            payload["service"] = "AAIS Multi-Modal AI"
     except Exception as exc:  # pragma: no cover - only exercised when the bridge env is broken
         logger.warning("Legacy runtime health unavailable: %s", exc)
         payload["ai_init_error"] = str(exc)

@@ -48,12 +48,14 @@ IDENTITY_ALIASES = {
     "orchestration": "mission_board",
     "corrigibility": "corrigibility_guidance",
     "continuity": "continuity_profile",
+    "epistemic": "epistemic_law",
     "turn_system": "system_seed",
     "seed": "system_seed",
 }
 SINGLETON_BLOCKS = {
     "system_seed",
     "runtime_directive",
+    "epistemic_law",
     "loaded_session_archive",
     "workspace_context",
     "urg_library_context",
@@ -68,6 +70,7 @@ SINGLETON_BLOCKS = {
 DEFAULT_PRIORITIES = {
     "system_seed": 0,
     "runtime_directive": 10,
+    "epistemic_law": 12,
     "local_fallback_guardrail": 15,
     "direct_challenge_guidance": 20,
     "plan_guidance": 25,
@@ -82,6 +85,7 @@ DEFAULT_PRIORITIES = {
 REQUIRED_IDENTITIES = {
     "system_seed",
     "runtime_directive",
+    "epistemic_law",
     "local_fallback_guardrail",
     "direct_challenge_guidance",
     "plan_guidance",

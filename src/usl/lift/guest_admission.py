@@ -122,6 +122,33 @@ def run_lift_admission_from_dict(
                 }
             )
 
+    if (
+        "lift_binary_invariant" not in admission_validators
+        and isinstance(governance_packet.get("lift_invariants"), list)
+    ):
+        # Compiler bundles do not emit an explicit lift_binary_invariant node;
+        # block-severity lift invariants must still be enforced at admission.
+        blocked = [
+            str(inv.get("invariant_id") or "unknown")
+            for inv in governance_packet.get("lift_invariants") or []
+            if isinstance(inv, dict) and str(inv.get("severity") or "") == "block"
+        ]
+        allows_lift = len(blocked) == 0
+        results.append(
+            {
+                "validator": "lift_binary_invariant",
+                "status": "pass" if allows_lift else "fail",
+                "allows": allows_lift,
+                "details": (
+                    "no block-severity lift invariants"
+                    if allows_lift
+                    else f"blocked invariants: {', '.join(blocked)}"
+                ),
+                "blocked_invariants": blocked,
+            }
+        )
+        allows = allows and allows_lift
+
     return {
         "module_id": "aais.invariant_compiler.admission",
         "status": "pass" if allows else "fail",

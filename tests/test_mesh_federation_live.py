@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import sys
 import tempfile
@@ -15,6 +16,13 @@ from werkzeug.serving import make_server
 
 ROOT = Path(__file__).resolve().parents[1]
 REX_ROOT = ROOT.parent / "reasoning-exchange-node"
+REX_APP = REX_ROOT / "app.py"
+
+if not REX_APP.is_file():
+    raise unittest.SkipTest(
+        "live mesh federation requires a sibling reasoning-exchange-node checkout"
+    )
+
 sys.path.insert(0, str(ROOT))
 
 from flask import Flask
@@ -28,7 +36,12 @@ from src.mesh.runtime import configure_mesh_dir
 from src.mesh.topology import load_mesh_config, save_mesh_config
 
 sys.path.insert(0, str(REX_ROOT))
-from app import create_app as create_rex_app
+_rex_spec = importlib.util.spec_from_file_location("reasoning_exchange_node_app", REX_APP)
+if _rex_spec is None or _rex_spec.loader is None:
+    raise unittest.SkipTest(f"cannot load reasoning-exchange-node app from {REX_APP}")
+_rex_app = importlib.util.module_from_spec(_rex_spec)
+_rex_spec.loader.exec_module(_rex_app)
+create_rex_app = _rex_app.create_app
 from mesh.gossip import gossip_pull as rex_gossip_pull
 from mesh.identity import load_or_create_identity as rex_load_identity
 from mesh.invariants import InvariantStore as RexInvariantStore

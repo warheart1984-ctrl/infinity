@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 import unittest
@@ -11,13 +12,14 @@ class RepoSafetyScriptTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="repo-safety-script-")
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
-        script_src = Path("E:/project-infi/.github/scripts/check-repo-safety.py")
+        repo = Path(__file__).resolve().parents[1]
+        script_src = repo / ".github/scripts/check-repo-safety.py"
         script_dst = self.root / ".github/scripts/check-repo-safety.py"
         script_dst.parent.mkdir(parents=True, exist_ok=True)
         script_dst.write_text(script_src.read_text(encoding="utf-8"), encoding="utf-8")
 
     def _run(self, *paths: str) -> subprocess.CompletedProcess[str]:
-        cmd = ["python", ".github/scripts/check-repo-safety.py"]
+        cmd = [sys.executable, ".github/scripts/check-repo-safety.py"]
         for path in paths:
             cmd.extend(["--path", path])
         return subprocess.run(cmd, cwd=self.root, text=True, capture_output=True, check=False)

@@ -9,7 +9,9 @@ import json
 from pathlib import Path
 import re
 import secrets
+import os
 import shutil
+import subprocess
 import tempfile
 from typing import Any
 
@@ -33,6 +35,28 @@ from story_forge.visual_artifact_schema import unique_strings, unique_tokens
 
 def _default_movie_root() -> Path:
     return default_movie_output_root()
+
+
+def launch_movie_post_render_hook(frames_dir: str | Path) -> bool:
+    """Launch the optional frame-memory hook after final render promotion.
+
+    This remains fail-open for movie delivery. The hook receives only a final,
+    existing frames directory and runs without a shell.
+    """
+
+    hook = os.environ.get("MOVIE_POST_RENDER_HOOK", "").strip()
+    final_frames_dir = Path(frames_dir)
+    if not hook or not final_frames_dir.is_dir():
+        return False
+    try:
+        subprocess.Popen(
+            [hook, str(final_frames_dir)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 _SUPPORTED_CAPTURE_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp"}
@@ -454,6 +478,9 @@ class MovieRenderer:
 
         admitted_result.audit_path = write_audit_artifact(admitted_result, audit)
         admitted_result.audit_witness = audit.hayley_witness
+        # Optional and fail-open: final frames now exist, so the hook cannot race
+        # staged promotion or index a path that has not been admitted yet.
+        launch_movie_post_render_hook(admitted_result.frames_dir)
         return admitted_result
 
     def run_movie_pipeline(

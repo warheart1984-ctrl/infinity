@@ -83,7 +83,7 @@ class TestAuthorityMaskLowering(unittest.TestCase):
         mask = lower_authority_mask(ir, {})
         external = mask["sites"]["external_mutation_command"]
         self.assertFalse(external.get("denied"))
-        self.assertIn("execute", external.get("allowed_verbs", ()))
+        self.assertIn("propose", external.get("allowed_verbs", ()))
 
     def test_observe_only_denies_execute_on_external_mutation(self):
         ir = _bridge_and_ir(execution_intent="observe")

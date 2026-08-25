@@ -54,6 +54,8 @@ class BrokerMultiguestTests(unittest.TestCase):
     ) -> None:
         msg = BrokerMessage(
             msg_type="register_guest",
+            capability_id="",
+            ceiling_id="fs.basic",
             guest_process_id=guest_id,
             path=self.elf_path,
             profile_id="usl-lifted-guest",

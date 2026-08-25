@@ -50,6 +50,7 @@ class OtemExecutionApprovalBridgeTests(unittest.TestCase):
                 "template_name": "Daily AI Brief",
                 "rationale": "Matches daily brief workflow shape.",
                 "proposal_only": True,
+                "evidence": ["log:jarvis-operator-turn", "odl:daily-brief-handoff"],
             },
         }
 

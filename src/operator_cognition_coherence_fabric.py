@@ -547,6 +547,9 @@ def _build_immune_observe_posture(
     posture.append(
         {
             "organ_id": "immune_resilience_organ",
+            # Resilience is a defensive posture, not an observer; it is
+            # governed by its own alignment contract (_immune_resilience_aligned).
+            "posture_role": "resilience",
             "stage": str(resilience.get("cisiv_stage") or "implementation")[:MAX_FIELD_LEN],
             "claim_label": str(resilience.get("claim_label") or "asserted")[:32],
             "defense_generation": int(resilience.get("defense_generation") or 0),
@@ -571,6 +574,7 @@ def _build_immune_observe_posture(
             "stage": str(policy.get("cisiv_stage") or "implementation")[:MAX_FIELD_LEN],
             "claim_label": str(policy.get("claim_label") or "asserted")[:32],
             "observe_only": bool(policy.get("observe_protocol_only")),
+            "read_only": bool(policy.get("read_only")),
             "substrate_bridged": False,
         }
     )
@@ -608,7 +612,12 @@ def _immune_observe_aligned(
     for item in immune_posture:
         if str(item.get("claim_label") or "") == "rejected":
             return False
-        if not item.get("observe_only"):
+        # Organs governed by their own alignment contract (e.g. resilience)
+        # declare posture_role and are not evaluated here.
+        if item.get("posture_role"):
+            continue
+        observe_only = item.get("observe_only") or item.get("read_only")
+        if not observe_only:
             return False
         if item.get("substrate_bridged"):
             bridged = True

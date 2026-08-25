@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,7 +25,7 @@ class RepoHygieneScriptTests(unittest.TestCase):
 
     def _run(self, *extra: str) -> subprocess.CompletedProcess[str]:
         cmd = [
-            "python",
+            sys.executable,
             ".github/scripts/check-repo-hygiene.py",
             "--skip-bundle-compare",
             *extra,

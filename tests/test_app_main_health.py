@@ -83,12 +83,16 @@ class TestCanonicalHealth(unittest.TestCase):
         )
 
     def test_legacy_bridge_mount_uses_supported_a2wsgi_wrapper(self):
+        # The legacy Flask runtime mounts at root; /legacy_api/* URLs are kept
+        # working by the prefix-rewrite middleware in front of it.
         mounted_route = next(
-            route for route in app_main.app.routes if getattr(route, "path", None) == app_main.LEGACY_API_MOUNT_PATH
+            route for route in app_main.app.routes if getattr(route, "name", None) == "jarvis_legacy_root"
         )
 
         self.assertEqual(mounted_route.app.__class__.__name__, "WSGIMiddleware")
         self.assertTrue(mounted_route.app.__class__.__module__.startswith("a2wsgi"))
+        middleware_classes = {middleware.cls for middleware in app_main.app.user_middleware}
+        self.assertIn(app_main.LegacyPrefixRewriteMiddleware, middleware_classes)
 
     def test_build_operator_health_payload_uses_legacy_runtime_snapshot(self):
         bootstrap_calls: list[str] = []
@@ -115,8 +119,9 @@ class TestCanonicalHealth(unittest.TestCase):
         self.assertEqual(payload["active_model_mode"], "real")
         self.assertEqual(payload["ai_status"], "initialized")
         self.assertEqual(bootstrap_calls, ["canonical_health"])
-        self.assertIn("system_guard", payload)
-        self.assertIn("dreamspace", payload)
+        # Heavy snapshots live in /health/details; compact health stays small.
+        self.assertNotIn("system_guard", payload)
+        self.assertNotIn("dreamspace", payload)
 
     def test_build_operator_health_payload_degrades_cleanly_when_legacy_runtime_is_unavailable(self):
         with patch("app.main.importlib.import_module", side_effect=RuntimeError("legacy bridge unavailable")):

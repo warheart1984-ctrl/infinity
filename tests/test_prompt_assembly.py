@@ -2,6 +2,7 @@
 
 import unittest
 
+from src.amul_epistemic_ledger import build_epistemic_law_prompt_block
 from src.prompt_assembly import (
     PromptAssemblyIdentityError,
     assemble_prompt_blocks,
@@ -99,6 +100,29 @@ class TestPromptAssembly(unittest.TestCase):
         self.assertIn("plan_guidance", identities)
         self.assertGreaterEqual(report.budget_dropped, 1)
         self.assertLessEqual(report.chars_after_cleanup, report.prompt_token_budget * 4)
+
+    def test_epistemic_law_is_singleton_and_survives_tight_budget(self):
+        """The timestamped-evidence law must remain model-neutral and non-duplicative."""
+        law = build_epistemic_law_prompt_block()
+        blocks, report = assemble_prompt_blocks(
+            [
+                {"identity": "system_seed", "content": "You are Jarvis."},
+                law,
+                dict(law),
+                {
+                    "identity": "workspace_context",
+                    "content": "Optional changing context. " * 100,
+                },
+            ],
+            prompt_token_budget=24,
+            reserved_response_budget=192,
+        )
+
+        identities = [block.identity for block in blocks]
+        self.assertEqual(identities.count("epistemic_law"), 1)
+        self.assertIn("timestamped evidence", combine_system_prompt(blocks))
+        self.assertIn("epistemic_law", report.included_block_identities)
+        self.assertEqual(report.duplicates_removed, 1)
 
     def test_system_blocks_without_semantic_identity_fail_closed(self):
         """System guidance must declare a stable semantic identity instead of relying on fallback labels."""

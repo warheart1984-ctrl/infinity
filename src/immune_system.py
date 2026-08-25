@@ -96,8 +96,14 @@ PACKET_THREAT_SEVERITY = {
 class ImmuneSystemController:
     """Persist immune posture, events, and incidents for the operator console."""
 
-    def __init__(self, runtime_dir: str | Path | None = None):
+    def __init__(
+        self,
+        runtime_dir: str | Path | None = None,
+        *,
+        ceiling: Any | None = None,
+    ):
         self.runtime_dir = Path(runtime_dir or _default_runtime_dir()) / "immune-system"
+        self._ceiling = ceiling
         self._lock = threading.Lock()
         self._state = ImmuneState()
         self._events: list[dict[str, Any]] = []
@@ -406,10 +412,9 @@ class ImmuneSystemController:
 
         if normalized_severity == "critical":
             try:
-                from src.otem_ceiling import otem_ceiling
-
-                if not otem_ceiling.containment_active():
-                    otem_ceiling.evaluate_trigger(
+                ceiling = self._escalation_ceiling()
+                if ceiling is not None and not ceiling.containment_active():
+                    ceiling.evaluate_trigger(
                         trigger_type="immune_critical",
                         severity=normalized_severity,
                         summary=reason or f"critical protocol signal on {component_key}",
@@ -423,6 +428,20 @@ class ImmuneSystemController:
             except Exception:
                 pass
         return result
+
+    def _escalation_ceiling(self):
+        """Return the OTEM ceiling bound to this controller.
+
+        Defaults to the process-wide singleton so live escalation behavior is
+        unchanged; isolated controllers (tests, sandboxes) may bind their own
+        runtime-scoped ceiling so containment never leaks across boundaries.
+        """
+        ceiling = getattr(self, "_ceiling", None)
+        if ceiling is not None:
+            return ceiling
+        from src.otem_ceiling import otem_ceiling
+
+        return otem_ceiling
 
     def hardening_profile(self):
         return self._hardening.profile_for_protocol()

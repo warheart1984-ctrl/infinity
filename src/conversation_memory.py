@@ -2503,15 +2503,30 @@ class ConversationMemory:
                     )
                     sess.created_at = datetime.fromisoformat(item.get("created_at")) if item.get("created_at") else sess.created_at
                     sess.updated_at = datetime.fromisoformat(item.get("updated_at")) if item.get("updated_at") else sess.updated_at
-                    sess.turns = [
-                        ConversationTurn(
-                            role=str(t.get("role") or "user"),
-                            content=str(t.get("content") or ""),
-                            metadata=t.get("metadata") if isinstance(t.get("metadata"), dict) else None,
+                    restored_turns = []
+                    for turn_data in (item.get("turns") or []):
+                        if not isinstance(turn_data, dict):
+                            continue
+                        turn = ConversationTurn(
+                            role=str(turn_data.get("role") or "user"),
+                            content=str(turn_data.get("content") or ""),
+                            metadata=(
+                                turn_data.get("metadata")
+                                if isinstance(turn_data.get("metadata"), dict)
+                                else None
+                            ),
                         )
-                        for t in (item.get("turns") or [])
-                        if isinstance(t, dict)
-                    ]
+                        timestamp = turn_data.get("timestamp")
+                        if isinstance(timestamp, str) and timestamp.strip():
+                            try:
+                                turn.timestamp = datetime.fromisoformat(timestamp)
+                            except ValueError:
+                                logger.warning(
+                                    "Ignoring invalid turn timestamp in session snapshot: %s",
+                                    timestamp,
+                                )
+                        restored_turns.append(turn)
+                    sess.turns = restored_turns
                     meta = item.get("metadata") or {}
                     if isinstance(meta, dict) and meta:
                         sess.metadata.update(meta)

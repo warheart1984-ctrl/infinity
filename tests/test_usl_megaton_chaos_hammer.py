@@ -40,6 +40,16 @@ def test_megaton_phase1_offline_zero_unexpected(tmp_path, monkeypatch):
 
 
 def test_megaton_all_phases_offline(tmp_path, monkeypatch):
+    import pytest
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    except ImportError:
+        pytest.skip("cryptography package not installed")
+    try:
+        import cryptography
+    except ImportError:
+        import pytest
+        pytest.skip("cryptography package not installed")
     mod = importlib.import_module("tools.stress.usl_megaton_chaos_hammer")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(mod, "ROOT", tmp_path)

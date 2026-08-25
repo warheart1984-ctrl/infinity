@@ -1,0 +1,355 @@
+.holo-rt4d {
+  --holo-ink: #e8f1f8;
+  --holo-muted: rgba(232, 241, 248, 0.62);
+  --holo-line: rgba(146, 188, 214, 0.22);
+  --holo-cyan: #5ce7ff;
+  --holo-teal: #2dd4bf;
+  --holo-warn: #f0b429;
+  --holo-danger: #fb7185;
+  --holo-panel: rgba(8, 18, 30, 0.72);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3.5rem;
+  color: var(--holo-ink);
+}
+
+.holo-rt4d__hero {
+  margin-bottom: 1.25rem;
+}
+
+.holo-rt4d__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--holo-cyan);
+}
+
+.holo-rt4d h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  background: linear-gradient(120deg, #f4fbff 10%, var(--holo-cyan) 55%, var(--holo-teal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.holo-rt4d__lede {
+  max-width: 38rem;
+  margin: 0.85rem 0 0;
+  color: var(--holo-muted);
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.holo-rt4d__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  font-size: 0.92rem;
+}
+
+.holo-rt4d__links a {
+  color: var(--holo-teal);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.holo-rt4d__links a:hover {
+  color: var(--holo-cyan);
+}
+
+.holo-rt4d__stage {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--holo-line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(92, 231, 255, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(45, 212, 191, 0.1), transparent 28%),
+    var(--holo-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.holo-rt4d__map {
+  position: relative;
+  min-height: min(62vh, 560px);
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(92, 231, 255, 0.16);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(20, 48, 68, 0.9), rgba(4, 10, 18, 0.98));
+}
+
+.holo-rt4d__map svg {
+  display: block;
+  width: 100%;
+  height: min(62vh, 560px);
+}
+
+.holo-rt4d__floor {
+  fill: rgba(6, 14, 24, 0.55);
+}
+
+.holo-rt4d__grid {
+  stroke: rgba(146, 188, 214, 0.1);
+  stroke-width: 0.25;
+}
+
+.holo-rt4d__edge {
+  stroke: rgba(146, 188, 214, 0.28);
+  stroke-width: 0.45;
+}
+
+.holo-rt4d__edge.is-obstacle {
+  stroke: var(--holo-danger);
+  stroke-dasharray: 1.2 1.1;
+  stroke-width: 0.7;
+}
+
+.holo-rt4d__cone {
+  fill: rgba(92, 231, 255, 0.12);
+  stroke: rgba(92, 231, 255, 0.28);
+  stroke-width: 0.35;
+  transition: opacity 220ms ease;
+}
+
+.holo-rt4d__ray {
+  stroke-width: 0.55;
+  fill: none;
+  transition: stroke 180ms ease, opacity 180ms ease;
+}
+
+.holo-rt4d__ray.is-visible {
+  stroke: var(--holo-cyan);
+  opacity: 0.95;
+}
+
+.holo-rt4d__ray.is-occluded {
+  stroke: rgba(240, 180, 41, 0.7);
+  stroke-dasharray: 1.4 1.2;
+  opacity: 0.75;
+}
+
+.holo-rt4d__node,
+.holo-rt4d__entity {
+  cursor: pointer;
+  outline: none;
+}
+
+.holo-rt4d__node circle,
+.holo-rt4d__entity rect {
+  transition: fill 160ms ease, stroke 160ms ease, transform 160ms ease;
+}
+
+.holo-rt4d__node text,
+.holo-rt4d__entity text {
+  fill: rgba(232, 241, 248, 0.78);
+  font-size: 2.2px;
+  text-anchor: middle;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+
+.holo-rt4d__node.is-observer circle {
+  fill: var(--holo-cyan);
+  stroke: #effbff;
+  stroke-width: 0.45;
+}
+
+.holo-rt4d__observer-halo {
+  fill: none;
+  stroke: rgba(92, 231, 255, 0.55);
+  stroke-width: 0.35;
+  animation: holo-rt4d-pulse 2.4s ease-in-out infinite;
+}
+
+.holo-rt4d__node.is-visible circle {
+  fill: var(--holo-teal);
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.3;
+}
+
+.holo-rt4d__node.is-occluded circle {
+  fill: rgba(240, 180, 41, 0.35);
+  stroke: var(--holo-warn);
+  stroke-width: 0.35;
+  stroke-dasharray: 0.8 0.6;
+}
+
+.holo-rt4d__node.is-obstacle circle {
+  fill: rgba(251, 113, 133, 0.35);
+  stroke: var(--holo-danger);
+  stroke-width: 0.4;
+}
+
+.holo-rt4d__node.is-neutral circle {
+  fill: rgba(146, 188, 214, 0.35);
+  stroke: rgba(146, 188, 214, 0.7);
+  stroke-width: 0.3;
+}
+
+.holo-rt4d__entity.is-visible rect {
+  fill: rgba(45, 212, 191, 0.9);
+  stroke: #ecfeff;
+  stroke-width: 0.3;
+}
+
+.holo-rt4d__entity.is-occluded rect {
+  fill: rgba(240, 180, 41, 0.35);
+  stroke: var(--holo-warn);
+  stroke-width: 0.35;
+  stroke-dasharray: 0.7 0.55;
+}
+
+.holo-rt4d__entity.is-inactive {
+  opacity: 0.28;
+}
+
+.holo-rt4d__entity.is-inactive rect {
+  fill: rgba(146, 188, 214, 0.2);
+  stroke: rgba(146, 188, 214, 0.45);
+  stroke-dasharray: 0.6 0.6;
+}
+
+.holo-rt4d__scan-ring {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.holo-rt4d__map.is-scanning .holo-rt4d__scan-ring {
+  animation: holo-rt4d-scan 0.9s ease-out;
+}
+
+.holo-rt4d__readout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.holo-rt4d__readout > div,
+.holo-rt4d__readout-summary {
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(146, 188, 214, 0.14);
+}
+
+.holo-rt4d__readout span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--holo-muted);
+  margin-bottom: 0.25rem;
+}
+
+.holo-rt4d__readout strong {
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.holo-rt4d__readout-summary {
+  grid-column: 1 / -1;
+}
+
+.holo-rt4d__readout-summary strong {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--holo-muted);
+}
+
+.holo-rt4d__controls {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.2fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.holo-rt4d__controls label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--holo-muted);
+}
+
+.holo-rt4d__controls input[type="text"],
+.holo-rt4d__controls input:not([type]),
+.holo-rt4d__controls input[type="search"] {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(146, 188, 214, 0.22);
+  background: rgba(4, 10, 18, 0.7);
+  color: var(--holo-ink);
+}
+
+.holo-rt4d__tick input[type="range"] {
+  width: 100%;
+  accent-color: var(--holo-cyan);
+}
+
+.holo-rt4d__tick-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--holo-muted);
+}
+
+.holo-rt4d__tick-marks .is-active {
+  color: var(--holo-cyan);
+  font-weight: 700;
+}
+
+.holo-rt4d__probe {
+  padding: 0.75rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #1f9aa8 0%, #2dd4bf 55%, #5ce7ff 100%);
+  color: #041018;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.holo-rt4d__probe:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.holo-rt4d__depth {
+  margin: 0;
+  color: var(--holo-muted);
+  font-size: 0.92rem;
+}
+
+@keyframes holo-rt4d-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.08); }
+}
+
+@keyframes holo-rt4d-scan {
+  0% { opacity: 0.15; transform: scale(0.4); }
+  70% { opacity: 0.7; }
+  100% { opacity: 0; transform: scale(1.8); }
+}
+
+@media (max-width: 860px) {
+  .holo-rt4d__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .holo-rt4d__readout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .holo-rt4d__map svg {
+    height: min(58vh, 420px);
+  }
+}

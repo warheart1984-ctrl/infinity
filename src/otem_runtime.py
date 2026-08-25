@@ -161,7 +161,7 @@ def _clip_text(value: Any, limit: int = 180) -> str:
     return normalized[: limit - 3].rstrip() + "..."
 
 
-def load_workflow_template_catalog(limit: int = 6) -> list[dict[str, Any]]:
+def load_workflow_template_catalog(limit: int = 10) -> list[dict[str, Any]]:
     """Expose workflow templates as a read-only catalog for OTEM handoff decisions."""
     try:
         from app.workflow_templates import WORKFLOW_TEMPLATES
@@ -169,7 +169,7 @@ def load_workflow_template_catalog(limit: int = 6) -> list[dict[str, Any]]:
         return []
 
     catalog: list[dict[str, Any]] = []
-    for template in list(WORKFLOW_TEMPLATES or [])[: max(1, min(int(limit or 6), 12))]:
+    for template in list(WORKFLOW_TEMPLATES or [])[: max(1, min(int(limit or 10), 16))]:
         integrations = [str(item).strip() for item in list(template.get("integrations") or []) if str(item).strip()]
         capabilities = []
         if "email" in integrations:
@@ -180,6 +180,8 @@ def load_workflow_template_catalog(limit: int = 6) -> list[dict[str, Any]]:
             capabilities.append("webhook or API intake")
         if "schedules" in integrations:
             capabilities.append("scheduled execution")
+        if any(token in integrations for token in ("adaptive_music", "beatbox", "speakers", "mandala", "holo", "voice", "imagine", "spatial")):
+            capabilities.append("media / creative audio-spatial flow")
         if not capabilities:
             capabilities.append("structured workflow handoff")
         catalog.append(
@@ -334,8 +336,28 @@ def _score_workflow_template(restated_task: str, template: dict[str, Any]) -> in
         score += 3
     if any(token in lower for token in ("daily", "weekly", "schedule", "brief")) and "schedules" in integrations:
         score += 3
+    if any(token in lower for token in ("score", "music", "beatbox", "speakers", "mix", "stem", "mandala", "sovereign sound")) and (
+        integrations & {"adaptive_music", "beatbox", "speakers", "mandala"}
+    ):
+        score += 3
+    if any(token in lower for token in ("holo", "spatial", "occlusion", "visibility")) and (
+        integrations & {"holo", "spatial"}
+    ):
+        score += 3
+    if any(token in lower for token in ("voice", "speakers handoff", "voice extract")) and (
+        integrations & {"voice", "speakers"}
+    ):
+        score += 3
+    if any(token in lower for token in ("imagine", "audio pack", "visual pack")) and (
+        integrations & {"imagine", "adaptive_music"}
+    ):
+        score += 3
     if category and category in lower:
         score += 1
+    if category == "media" and any(
+        token in lower for token in ("media", "audio", "creative", "spatial", "score", "music")
+    ):
+        score += 2
     if any(signal in lower for signal in WORKFLOW_SIGNAL_TERMS):
         score += 1
     return score

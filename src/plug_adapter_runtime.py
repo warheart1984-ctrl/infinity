@@ -58,16 +58,30 @@ class PlugAdapterRuntime:
     def registry_snapshot(self) -> dict[str, Any]:
         enabled = self._load_enabled()
         plugs = []
+        seen: set[str] = set()
         for plug in discover_plugs(repo_root=self._repo_root):
             row = dict(plug)
             row["enabled"] = bool(enabled.get(row["plug_id"], False))
             plugs.append(row)
+            seen.add(row["plug_id"])
+        # Merge OperatorMiddlewarePlugRegistry (Google/Microsoft/calendar/spreadsheet)
+        from src.operator_middleware_plugs import operator_middleware_plug_registry
+
+        for row in operator_middleware_plug_registry.list_plugs():
+            plug_id = str(row.get("plug_id") or "")
+            if not plug_id or plug_id in seen:
+                continue
+            seen.add(plug_id)
+            merged = dict(row)
+            merged["enabled"] = bool(enabled.get(plug_id, False))
+            plugs.append(merged)
         return {
             "plug_adapter_version": "plug_adapter.v1",
             "module_id": MODULE_ID,
             "plug_count": len(plugs),
             "enabled_count": sum(1 for p in plugs if p.get("enabled")),
             "plugs": plugs,
+            "middleware": operator_middleware_plug_registry.catalog(),
         }
 
     def list_libraries(self) -> list[dict[str, Any]]:
@@ -77,7 +91,11 @@ class PlugAdapterRuntime:
         return list_workflow_bundles(repo_root=self._repo_root)
 
     def set_plug_enabled(self, plug_id: str, enabled: bool) -> dict[str, Any] | None:
+        from src.operator_middleware_plugs import operator_middleware_plug_registry
+
         plugs = {p["plug_id"]: p for p in discover_plugs(repo_root=self._repo_root)}
+        for row in operator_middleware_plug_registry.list_plugs():
+            plugs[str(row["plug_id"])] = row
         if plug_id not in plugs:
             return None
         with self._lock:
@@ -96,16 +114,50 @@ class PlugAdapterRuntime:
         dry_run: bool = True,
         operator_approved: bool = False,
     ) -> dict[str, Any]:
+        from src.operator_middleware_plugs import operator_middleware_plug_registry
+
+        args = dict(args or {})
         plugs = {p["plug_id"]: p for p in discover_plugs(repo_root=self._repo_root)}
+        for row in operator_middleware_plug_registry.list_plugs():
+            plugs[str(row["plug_id"])] = row
+
         plug = plugs.get(plug_id)
-        if not plug:
+        middleware_plug = operator_middleware_plug_registry.get(plug_id)
+
+        if not plug and not middleware_plug:
             return {"outcome": "not_found", "plug_id": plug_id}
+
+        # Middleware plugs may execute in demo without prior enable (still governed)
         enabled = self._load_enabled()
-        if not enabled.get(plug_id, False):
+        is_middleware = bool(middleware_plug) or str((plug or {}).get("plug_class") or "") == "middleware"
+        if not is_middleware and not enabled.get(plug_id, False):
             return {"outcome": "blocked", "reason": "plug disabled", "plug_id": plug_id}
-        authority = str(plug.get("authority_level") or "observe")
-        if authority in {"execute", "admin"} and not operator_approved and not dry_run:
+
+        authority = str((plug or {}).get("authority_level") or "observe")
+        if authority in {"execute", "admin"} and not operator_approved and not dry_run and not is_middleware:
             return {"outcome": "blocked", "reason": "operator_approved required", "plug_id": plug_id}
+
+        if middleware_plug:
+            # Real adapter path (demo / needs_auth / deferred live) — not simulate-only
+            payload = dict(args)
+            if "force_demo" not in payload:
+                payload["force_demo"] = bool(dry_run)
+            action = str(args.get("action") or args.get("op") or "")
+            mw_result = operator_middleware_plug_registry.execute(
+                plug_id, action=action or None, payload=payload
+            )
+            receipt_id = f"plug_{uuid4().hex[:12]}"
+            return {
+                "execution_id": receipt_id,
+                "plug_id": plug_id,
+                "plug_class": "middleware",
+                "authority_level": authority,
+                "dry_run": bool(dry_run),
+                "result": mw_result,
+                "outcome": mw_result.get("outcome") or ("ok" if mw_result.get("ok") else "error"),
+                "recorded_at": _utc_now_iso(),
+            }
+
         if plug.get("plug_class") == "mcp":
             result = invoke_mcp_plug(plug_id, args=args, dry_run=dry_run or authority == "observe")
         else:

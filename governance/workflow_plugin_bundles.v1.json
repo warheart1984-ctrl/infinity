@@ -204,7 +204,7 @@
       "steps": [
         {"plug_pattern": "mcp.plugin_linear_linear.*", "role": "lead_record"},
         {"plug_pattern": "native.memory.list", "role": "context"},
-        {"plug_pattern": "native.calendar.schedule", "role": "follow_up", "status": "pending_plug"}
+        {"plug_pattern": "native.calendar.schedule", "role": "follow_up"}
       ],
       "required_gates": ["customer_data_boundary", "outreach_approval"]
     },
@@ -216,7 +216,7 @@
       "steps": [
         {"plug_pattern": "native.document_vision.extract_text", "role": "statement_ingest"},
         {"plug_pattern": "native.media.analyze", "role": "rollup"},
-        {"plug_pattern": "native.spreadsheet.export", "role": "report_export", "status": "pending_plug"}
+        {"plug_pattern": "native.spreadsheet.export", "role": "report_export"}
       ],
       "required_gates": ["financial_boundary", "output_integrity"]
     },
@@ -288,7 +288,7 @@
       "steps": [
         {"plug_pattern": "native.forge.status", "role": "package"},
         {"plug_pattern": "native.memory.list", "role": "index"},
-        {"plug_pattern": "native.crm.attach", "role": "crm_link", "status": "pending_plug"}
+        {"plug_pattern": "middleware.crm", "role": "crm_link"}
       ],
       "required_gates": ["storage_receipt", "archive_lineage"]
     },
@@ -300,7 +300,7 @@
       "steps": [
         {"plug_pattern": "native.memory.list", "role": "priorities"},
         {"plug_pattern": "mcp.plugin_linear_linear.*", "role": "tasks"},
-        {"plug_pattern": "native.calendar.schedule", "role": "calendar_block", "status": "pending_plug"}
+        {"plug_pattern": "native.calendar.schedule", "role": "calendar_block"}
       ],
       "required_gates": ["personal_boundary"]
     },
@@ -324,7 +324,7 @@
       "steps": [
         {"plug_pattern": "native.memory.list", "role": "habit_log"},
         {"plug_pattern": "native.action.status", "role": "review"},
-        {"plug_pattern": "native.calendar.schedule", "role": "next_checkin", "status": "pending_plug"}
+        {"plug_pattern": "native.calendar.schedule", "role": "next_checkin"}
       ],
       "required_gates": ["personal_boundary"]
     }

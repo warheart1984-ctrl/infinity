@@ -5,7 +5,7 @@ import { apiGet, apiPost, getApiErrorMessage } from '../lib/api';
 import './WorkflowApprovals.css';
 
 function OperatorPlugins() {
-  const [tab, setTab] = useState('libraries');
+  const [tab, setTab] = useState('middleware');
   const [libraries, setLibraries] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [organs, setOrgans] = useState([]);
@@ -39,17 +39,23 @@ function OperatorPlugins() {
   const [civilizations, setCivilizations] = useState(null);
   const [civilizationCandidates, setCivilizationCandidates] = useState([]);
   const [plugins, setPlugins] = useState(null);
+  const [middlewarePlugs, setMiddlewarePlugs] = useState(null);
+  const [middlewareConsole, setMiddlewareConsole] = useState(null);
+  const [middlewareResult, setMiddlewareResult] = useState(null);
+  const [newTaskTitle, setNewTaskTitle] = useState('Follow up with Sarah tomorrow');
   const [loading, setLoading] = useState(true);
   const [chainId, setChainId] = useState('research_brief');
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [libRes, wfRes, organRes, plugRes, meshRes, cultureRes, identityRes, narrativeRes, autobiographicalRes, socialRes, multiBeingRes, cobRes, ecoRes, mgmRes, dipRes, nfdRes, cevRes, gcvRes] = await Promise.all([
+      const [libRes, wfRes, organRes, plugRes, mwRes, mwConsoleRes, meshRes, cultureRes, identityRes, narrativeRes, autobiographicalRes, socialRes, multiBeingRes, cobRes, ecoRes, mgmRes, dipRes, nfdRes, cevRes, gcvRes] = await Promise.all([
         apiGet('/api/operator/plugins/libraries'),
         apiGet('/api/operator/plugins/workflows'),
         apiGet('/api/operator/organs'),
         apiGet('/api/operator/plugins'),
+        apiGet('/api/operator/middleware-plugs'),
+        apiGet('/api/operator/middleware/console'),
         apiGet('/api/operator/organs/mesh'),
         apiGet('/api/operator/culture'),
         apiGet('/api/operator/identity'),
@@ -69,6 +75,8 @@ function OperatorPlugins() {
       setWorkflows(wfRes.data?.workflows || []);
       setOrgans(organRes.data?.organs || []);
       setPlugins(plugRes.data?.plugins || null);
+      setMiddlewarePlugs(mwRes.data || null);
+      setMiddlewareConsole(mwConsoleRes.data || null);
       setMesh(meshRes.data || null);
       setCulture(cultureRes.data || null);
       setCultureCandidates(cultureRes.data?.recent_candidates || []);
@@ -114,6 +122,77 @@ function OperatorPlugins() {
       toast.success(enabled ? 'Plug enabled' : 'Plug disabled');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not toggle plug.'));
+    }
+  };
+
+  const runMiddlewareDemo = async (plugId, action) => {
+    try {
+      const res = await apiPost(`/api/operator/middleware-plugs/${encodeURIComponent(plugId)}/execute`, {
+        action,
+        force_demo: true,
+        dry_run: true,
+        operator_approved: true,
+        to: 'operator@local',
+        subject: 'AAIS middleware demo',
+        body: 'Deterministic demo from OperatorPlugins middleware tab.',
+        title: 'AAIS follow-up',
+      });
+      setMiddlewareResult(res.data);
+      toast.success(`${plugId}: ${res.data?.outcome || 'done'}`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Middleware execute failed.'));
+    }
+  };
+
+  const connectOAuth = async (provider) => {
+    try {
+      const res = await apiGet(`/api/operator/oauth/authorize-url?provider=${encodeURIComponent(provider)}`);
+      const url = res.data?.authorize_url;
+      if (!url) {
+        toast.error(res.data?.error || 'OAuth not configured');
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      toast.success(`Opened ${provider} OAuth window`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not start OAuth'));
+    }
+  };
+
+  const createAaisTask = async () => {
+    try {
+      const res = await apiPost('/api/operator/middleware-plugs/middleware.aais.tasks/execute', {
+        action: 'create',
+        title: newTaskTitle,
+        operator_approved: true,
+        dry_run: false,
+        force_demo: false,
+      });
+      setMiddlewareResult(res.data);
+      await refresh();
+      toast.success('AAIS task created');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Create task failed'));
+    }
+  };
+
+  const syncMicrosoftTasks = async () => {
+    try {
+      const res = await apiPost('/api/operator/middleware-plugs/middleware.aais.tasks/execute', {
+        action: 'syncFromGraph',
+        operator_approved: true,
+        dry_run: false,
+        force_demo: false,
+      });
+      setMiddlewareResult(res.data);
+      if (res.data?.outcome === 'needs_auth') {
+        toast.error(res.data?.activation_hint || 'Connect Microsoft 365 first');
+      } else {
+        toast.success(res.data?.reason_code || 'Sync done');
+      }
+      await refresh();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Sync failed'));
     }
   };
 
@@ -418,16 +497,20 @@ function OperatorPlugins() {
     <div className="workflow-page">
       <div className="page-intro">
         <h1>Operator Plugins</h1>
-        <p>Libraries, workflow bundles, organs, and governed chain execution.</p>
+        <p>
+          Libraries, workflow bundles, organs, and governed chain execution.
+          Multi-lane asks use the <Link to="/task-bus">Constitutional Task Bus</Link> — not a vendor store.
+        </p>
       </div>
       <div className="workflow-page-actions">
         <Link className="workflow-page-link" to="/operator">Console</Link>
+        <Link className="workflow-page-link" to="/task-bus">Task Bus / Middleware</Link>
         <Link className="workflow-page-link" to="/operator/brain">Brain Sessions</Link>
         <Link className="workflow-page-link" to="/operator/ledger">Decision Ledger</Link>
         <button type="button" className="workflow-secondary-btn" onClick={refresh}>Refresh</button>
       </div>
       <div className="workflow-page-actions">
-        {['libraries', 'workflows', 'organs', 'mesh', 'culture', 'identity', 'narrative', 'autobiographical', 'social', 'multi-being', 'culture-of-beings', 'ecosystems', 'membrane', 'diplomacy', 'norm-federations', 'constitutional-evolution', 'civilizations', 'chain'].map((t) => (
+        {['middleware', 'libraries', 'workflows', 'organs', 'mesh', 'culture', 'identity', 'narrative', 'autobiographical', 'social', 'multi-being', 'culture-of-beings', 'ecosystems', 'membrane', 'diplomacy', 'norm-federations', 'constitutional-evolution', 'civilizations', 'chain'].map((t) => (
           <button key={t} type="button" className={`workflow-secondary-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
             {t}
           </button>
@@ -437,6 +520,101 @@ function OperatorPlugins() {
         <div className="workflow-card workflow-empty-card">Loading...</div>
       ) : (
         <>
+          {tab === 'middleware' ? (
+            <div className="workflow-approval-list" data-testid="middleware-plugs-tab">
+              <div className="workflow-card page-panel">
+                <strong>OperatorMiddlewarePlugRegistry</strong>
+                <p className="workflow-step-type">
+                  Mode: {middlewareConsole?.mode || middlewarePlugs?.mode || 'adaptive'} ·
+                  Gmail / Graph / CRM / AAIS Tasks / images. Tokens never shown raw.
+                </p>
+                <div className="workflow-page-actions" style={{ marginTop: '0.5rem' }}>
+                  <button type="button" className="workflow-secondary-btn" data-testid="connect-gmail" onClick={() => connectOAuth('gmail')}>
+                    Connect Gmail
+                  </button>
+                  <button type="button" className="workflow-secondary-btn" data-testid="connect-ms365" onClick={() => connectOAuth('microsoft')}>
+                    Connect Microsoft 365
+                  </button>
+                  <Link className="workflow-page-link" to="/task-bus">Open AAIS Middleware Console</Link>
+                </div>
+                <div className="workflow-step-type" style={{ marginTop: '0.75rem' }} data-testid="provider-status-badges">
+                  {['gmail', 'microsoft', 'crm', 'aais_tasks', 'images'].map((key) => {
+                    const row = middlewareConsole?.provider_status?.[key] || middlewarePlugs?.provider_status?.[key] || {};
+                    const mode = row.mode || (row.connected ? 'live' : 'simulate');
+                    return (
+                      <span key={key} style={{ marginRight: '0.75rem' }}>
+                        {key}: {row.connected ? 'Connected' : 'Not connected'} ({mode})
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="workflow-card page-panel" data-testid="aais-tasks-panel">
+                <strong>AAIS Tasks</strong>
+                <p className="workflow-step-type">Native To Do — works without Microsoft token.</p>
+                <input
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  style={{ width: '60%', marginRight: '0.5rem' }}
+                  aria-label="New AAIS task title"
+                />
+                <button type="button" className="workflow-secondary-btn" data-testid="aais-create-task" onClick={createAaisTask}>
+                  Create task
+                </button>
+                <button type="button" className="workflow-secondary-btn" data-testid="aais-sync-graph" onClick={syncMicrosoftTasks} style={{ marginLeft: '0.5rem' }}>
+                  Sync with Microsoft Tasks
+                </button>
+                <ul style={{ marginTop: '0.75rem' }}>
+                  {(middlewareConsole?.aais_tasks || []).slice(-10).reverse().map((t) => (
+                    <li key={t.id}>{t.title} · {t.status}{t.dueDate ? ` · due ${t.dueDate}` : ''}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="workflow-card page-panel" data-testid="recent-middleware-requests">
+                <strong>Recent requests</strong>
+                <ul>
+                  {(middlewareConsole?.recent_requests || []).map((r) => (
+                    <li key={r.trace_id || r.request_id}>
+                      {r.request_id || r.trace_id} · events {r.event_count ?? 0} · {(r.providers || []).join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {(middlewarePlugs?.plugs || []).map((plug) => (
+                <article key={plug.plug_id} className="workflow-card page-panel">
+                  <div className="workflow-approval-header">
+                    <div>
+                      <strong>{plug.display_name || plug.plug_id}</strong>
+                      <div className="workflow-step-type">
+                        {plug.plug_id} · {plug.auth_status} · {plug.provider}
+                      </div>
+                      {plug.activation_hint ? (
+                        <div className="workflow-step-type">{plug.activation_hint}</div>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="workflow-secondary-btn"
+                      onClick={() => runMiddlewareDemo(
+                        plug.plug_id,
+                        plug.actions?.[0]?.action_id || 'email_send',
+                      )}
+                    >
+                      Run demo
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {middlewareResult ? (
+                <pre className="workflow-card page-panel" style={{ overflow: 'auto', maxHeight: 240 }}>
+                  {JSON.stringify(middlewareResult, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          ) : null}
           {tab === 'libraries' ? (
             <div className="workflow-approval-list">
               {libraries.map((lib) => (

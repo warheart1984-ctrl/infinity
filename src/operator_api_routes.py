@@ -147,6 +147,218 @@ def register_operator_api_routes(app: Flask) -> None:
             return jsonify({"error": "plug not found", "plug_id": plug_id}), 404
         return jsonify({"plug": row}), 200
 
+    @app.route("/api/operator/middleware-plugs", methods=["GET"])
+    def operator_middleware_plugs_catalog():
+        from src.operator_middleware_plugs import operator_middleware_plug_registry
+
+        catalog = operator_middleware_plug_registry.catalog()
+        return jsonify({"ok": True, **catalog}), 200
+
+    @app.route("/api/operator/middleware-plugs/<plug_id>/execute", methods=["POST"])
+    def operator_middleware_plugs_execute(plug_id: str):
+        from src.plug_adapter_runtime import plug_adapter_runtime
+
+        body: dict[str, Any] = request.get_json(silent=True) or {}
+        result = plug_adapter_runtime.execute_plug(
+            plug_id,
+            args=body,
+            dry_run=bool(body.get("dry_run", True)),
+            operator_approved=bool(body.get("operator_approved", True)),
+        )
+        status = 200 if result.get("outcome") not in {"not_found"} else 404
+        return jsonify(result), status
+
+    @app.route("/api/operator/oauth/status", methods=["GET"])
+    def operator_oauth_status():
+        from src.operator_middleware_plugs.oauth_token_store import oauth_token_store
+
+        return jsonify(
+            {
+                "ok": True,
+                "gmail": oauth_token_store.status("gmail"),
+                "microsoft": oauth_token_store.status("microsoft"),
+                # never include raw tokens
+            }
+        ), 200
+
+    @app.route("/api/operator/oauth/authorize-url", methods=["GET"])
+    def operator_oauth_authorize_url():
+        """Return OAuth authorize URL for Gmail or Microsoft (PKCE / auth-code). Fail closed without client config."""
+        import os
+        import secrets
+        from urllib.parse import urlencode
+
+        provider = str(request.args.get("provider") or "").strip().lower()
+        if provider not in {"gmail", "microsoft"}:
+            return jsonify({"ok": False, "error": "provider must be gmail|microsoft"}), 400
+
+        state = secrets.token_urlsafe(16)
+        if provider == "gmail":
+            client_id = (os.getenv("AAIS_GMAIL_OAUTH_CLIENT_ID") or os.getenv("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
+            redirect = (
+                os.getenv("AAIS_GMAIL_OAUTH_REDIRECT_URI")
+                or "http://localhost:5173/operator/oauth/callback"
+            ).strip()
+            if not client_id:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "reason_code": "OAUTH_NOT_CONFIGURED",
+                        "error": "Set AAIS_GMAIL_OAUTH_CLIENT_ID",
+                    }
+                ), 400
+            params = {
+                "client_id": client_id,
+                "redirect_uri": redirect,
+                "response_type": "code",
+                "scope": "https://www.googleapis.com/auth/gmail.send",
+                "access_type": "offline",
+                "prompt": "consent",
+                "state": f"gmail:{state}",
+            }
+            url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
+            return jsonify({"ok": True, "provider": "gmail", "authorize_url": url, "state": state}), 200
+
+        client_id = (os.getenv("AAIS_MS_OAUTH_CLIENT_ID") or "").strip()
+        redirect = (
+            os.getenv("AAIS_MS_OAUTH_REDIRECT_URI")
+            or "http://localhost:5173/operator/oauth/callback"
+        ).strip()
+        tenant = (os.getenv("AAIS_MS_OAUTH_TENANT") or os.getenv("AAIS_MS_GRAPH_TENANT") or "common").strip()
+        if not client_id:
+            return jsonify(
+                {
+                    "ok": False,
+                    "reason_code": "OAUTH_NOT_CONFIGURED",
+                    "error": "Set AAIS_MS_OAUTH_CLIENT_ID",
+                }
+            ), 400
+        params = {
+            "client_id": client_id,
+            "response_type": "code",
+            "redirect_uri": redirect,
+            "response_mode": "query",
+            "scope": "offline_access Tasks.ReadWrite Mail.Send Calendars.ReadWrite",
+            "state": f"microsoft:{state}",
+        }
+        url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?" + urlencode(params)
+        return jsonify({"ok": True, "provider": "microsoft", "authorize_url": url, "state": state}), 200
+
+    @app.route("/api/operator/oauth/callback", methods=["POST"])
+    def operator_oauth_callback_exchange():
+        """Exchange auth code → token; store under .runtime/oauth/; never return raw token."""
+        import os
+        import time
+
+        import httpx
+
+        from src.operator_middleware_plugs.oauth_token_store import oauth_token_store
+
+        body: dict[str, Any] = request.get_json(silent=True) or {}
+        provider = str(body.get("provider") or "").strip().lower()
+        code = str(body.get("code") or "").strip()
+        if provider not in {"gmail", "microsoft"} or not code:
+            return jsonify({"ok": False, "error": "provider and code required"}), 400
+
+        try:
+            if provider == "gmail":
+                client_id = (os.getenv("AAIS_GMAIL_OAUTH_CLIENT_ID") or os.getenv("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
+                client_secret = (
+                    os.getenv("AAIS_GMAIL_OAUTH_CLIENT_SECRET") or os.getenv("GOOGLE_OAUTH_CLIENT_SECRET") or ""
+                ).strip()
+                redirect = (
+                    os.getenv("AAIS_GMAIL_OAUTH_REDIRECT_URI")
+                    or "http://localhost:5173/operator/oauth/callback"
+                ).strip()
+                if not client_id or not client_secret:
+                    return jsonify({"ok": False, "reason_code": "OAUTH_NOT_CONFIGURED"}), 400
+                res = httpx.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "code": code,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "redirect_uri": redirect,
+                        "grant_type": "authorization_code",
+                    },
+                    timeout=30.0,
+                )
+            else:
+                client_id = (os.getenv("AAIS_MS_OAUTH_CLIENT_ID") or "").strip()
+                client_secret = (os.getenv("AAIS_MS_OAUTH_CLIENT_SECRET") or "").strip()
+                redirect = (
+                    os.getenv("AAIS_MS_OAUTH_REDIRECT_URI")
+                    or "http://localhost:5173/operator/oauth/callback"
+                ).strip()
+                tenant = (os.getenv("AAIS_MS_OAUTH_TENANT") or "common").strip()
+                if not client_id or not client_secret:
+                    return jsonify({"ok": False, "reason_code": "OAUTH_NOT_CONFIGURED"}), 400
+                res = httpx.post(
+                    f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+                    data={
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "code": code,
+                        "redirect_uri": redirect,
+                        "grant_type": "authorization_code",
+                    },
+                    timeout=30.0,
+                )
+            if res.status_code >= 400:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "reason_code": "OAUTH_EXCHANGE_FAILED",
+                        "status": res.status_code,
+                        "error": "token exchange failed",
+                    }
+                ), 400
+            data = res.json()
+            access = str(data.get("access_token") or "")
+            if not access:
+                return jsonify({"ok": False, "reason_code": "OAUTH_NO_TOKEN"}), 400
+            expires_in = float(data.get("expires_in") or 3600)
+            oauth_token_store.put_token(
+                provider,  # type: ignore[arg-type]
+                access_token=access,
+                refresh_token=str(data.get("refresh_token") or "") or None,
+                expires_at=time.time() + expires_in,
+                scopes=str(data.get("scope") or "").split(),
+            )
+            return jsonify({"ok": True, "provider": provider, "status": oauth_token_store.status(provider)}), 200  # type: ignore[arg-type]
+        except httpx.HTTPError as exc:
+            return jsonify({"ok": False, "reason_code": "OAUTH_NETWORK_ERROR", "error": str(exc)}), 502
+
+    @app.route("/api/operator/middleware/console", methods=["GET"])
+    def operator_middleware_console_snapshot():
+        """Sovereign Console middleware tab snapshot — no raw tokens."""
+        from src.aais_tasks.aais_task_store import AaisTaskStore
+        from src.constitutional_task_bus.dispatch import recent_traces
+        from src.operator_middleware_plugs import operator_middleware_plug_registry
+        from src.operator_middleware_plugs.oauth_token_store import oauth_token_store
+
+        catalog = operator_middleware_plug_registry.catalog()
+        tasks = [t.to_dict() for t in AaisTaskStore().list()[-50:]]
+        traces = []
+        try:
+            traces = recent_traces(limit=20)
+        except Exception:
+            traces = []
+        return jsonify(
+            {
+                "ok": True,
+                "mode": catalog.get("mode") or "adaptive",
+                "provider_status": catalog.get("provider_status"),
+                "oauth": {
+                    "gmail": oauth_token_store.status("gmail"),
+                    "microsoft": oauth_token_store.status("microsoft"),
+                },
+                "plugs": catalog.get("plugs"),
+                "aais_tasks": tasks,
+                "recent_requests": traces,
+            }
+        ), 200
+
     @app.route("/api/operator/organs", methods=["GET"])
     def operator_organs_list():
         from src.workflow_family_readiness import list_families_with_readiness
@@ -1034,7 +1246,6 @@ def register_operator_api_routes(app: Flask) -> None:
             operator_approved=True,
             jarvis_authorization=auth,
             session_id=session_id,
-            authority_token=body.get("authority_token"),
         )
         status = 200 if result.get("outcome") == "adopted" else 400
         return jsonify({"adoption": result, **result}), status

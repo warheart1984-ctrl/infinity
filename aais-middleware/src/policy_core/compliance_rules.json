@@ -1,0 +1,72 @@
+{
+  "policy_rules_version": "task_bus_compliance_rules.v1",
+  "description": "Deny wins over allow on conflict. Providers are governed subcontracts.",
+  "rules": [
+    {
+      "id": "allow_ms_tasks_normal",
+      "effect": "allow",
+      "providers": ["ms_tasks"],
+      "match": {
+        "all": [
+          { "path": "intent.type", "in": ["task", "mixed"] },
+          { "path": "policy.riskLevel", "in": ["low", "normal"] }
+        ]
+      },
+      "reason": "Normal-risk planning may use Microsoft-style tasks lane."
+    },
+    {
+      "id": "route_longform_to_claude",
+      "effect": "allow",
+      "providers": ["claude_writer"],
+      "match": {
+        "any": [
+          { "path": "intent.tags", "contains": "longform" },
+          { "path": "intent.tags", "contains": "write" },
+          { "path": "intent.type", "in": ["skill", "mixed"] }
+        ]
+      },
+      "reason": "Long-form writing routes to Claude-style writer subcontract."
+    },
+    {
+      "id": "high_risk_code",
+      "effect": "deny",
+      "providers": ["gpt_tools"],
+      "match": {
+        "all": [
+          { "path": "policy.riskLevel", "eq": "high" },
+          {
+            "any": [
+              { "path": "intent.tags", "contains": "code" },
+              { "path": "intent.type", "in": ["workflow", "skill"] }
+            ]
+          }
+        ]
+      },
+      "reason": "High-risk code/workflow blocked on GPT-style tools without elevated authority."
+    },
+    {
+      "id": "allow_pictures",
+      "effect": "allow",
+      "providers": ["image_gen", "mandala"],
+      "match": {
+        "any": [
+          { "path": "intent.type", "in": ["picture", "mixed"] },
+          { "path": "intent.tags", "contains": "picture" }
+        ]
+      },
+      "reason": "Picture intents may use AAIS image_gen and mandala hooks."
+    },
+    {
+      "id": "allow_gpt_tools_normal",
+      "effect": "allow",
+      "providers": ["gpt_tools"],
+      "match": {
+        "all": [
+          { "path": "intent.type", "in": ["skill", "workflow", "mixed"] },
+          { "path": "policy.riskLevel", "in": ["low", "normal"] }
+        ]
+      },
+      "reason": "Normal-risk skill/workflow may use GPT-style tools lane (demo)."
+    }
+  ]
+}

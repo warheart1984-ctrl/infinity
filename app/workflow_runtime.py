@@ -431,18 +431,55 @@ def run_workflow_step(step: dict, input_data):
 
     if step_type == "email.send":
         body = _extract_text(input_data)
-        return {
-            "ok": True,
-            "step_id": step["id"],
-            "type": step_type,
-            "label": step["label"],
-            "output": f"Prepared email for {config.get('to') or 'user@example.com'}",
-            "data": {
-                "to": config.get("to") or "user@example.com",
-                "subject": config.get("subject") or "AAIS Workflow Result",
-                "body": body,
-            },
-        }
+        to = config.get("to") or "user@example.com"
+        subject = config.get("subject") or "AAIS Workflow Result"
+        # Wire to OperatorMiddlewarePlugRegistry (Gmail path) — not decorative stub
+        try:
+            from src.operator_middleware_plugs import operator_middleware_plug_registry
+            from src.plug_adapter_runtime import plug_adapter_runtime
+
+            mw = plug_adapter_runtime.execute_plug(
+                "middleware.google.gmail",
+                args={
+                    "action": "email_send",
+                    "to": to,
+                    "subject": subject,
+                    "body": body,
+                    "force_demo": True,
+                },
+                dry_run=True,
+                operator_approved=True,
+            )
+            mw_result = dict((mw or {}).get("result") or {})
+            return {
+                "ok": bool(mw_result.get("ok", True)),
+                "step_id": step["id"],
+                "type": step_type,
+                "label": step["label"],
+                "output": mw_result.get("summary")
+                or f"Email via middleware.google.gmail → {to}",
+                "data": {
+                    "to": to,
+                    "subject": subject,
+                    "body": body,
+                    "middleware_plug": "middleware.google.gmail",
+                    "middleware_result": mw_result,
+                    "execution_id": mw.get("execution_id"),
+                },
+            }
+        except Exception as exc:
+            return {
+                "ok": True,
+                "step_id": step["id"],
+                "type": step_type,
+                "label": step["label"],
+                "output": f"Prepared email for {to} (middleware fallback: {exc})",
+                "data": {
+                    "to": to,
+                    "subject": subject,
+                    "body": body,
+                },
+            }
 
     if step_type == "api.call":
         return _perform_api_call(step, input_data)

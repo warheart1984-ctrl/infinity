@@ -22,14 +22,26 @@ class SpeakersMixCapability(AAISCapabilityModule):
     def _handle_status(self, payload: dict[str, Any]) -> dict[str, Any]:
         from src.speakers_lane_organ import build_speakers_lane_status
 
-        return self._ok("status", {"lane": build_speakers_lane_status(), "standalone_lane": True})
+        return {
+            "lane": build_speakers_lane_status(),
+            "standalone_lane": True,
+            "execution_ready": True,
+            "engine": "speakers_mix.v1",
+        }
 
     def _handle_mix(self, payload: dict[str, Any]) -> dict[str, Any]:
-        cues = payload.get("cues") or {}
-        return self._ok(
-            "mix",
-            {
-                "mix_plan": {"cues": cues, "status": "governed_posture"},
-                "standalone_lane": True,
-            },
-        )
+        from src.adaptive_music_runtime import mix_stems
+
+        mixed = mix_stems(payload)
+        return {
+            "mix_plan": mixed.get("mix_plan") or {},
+            "session_id": mixed.get("session_id"),
+            "scene_id": mixed.get("scene_id"),
+            "mix_path": mixed.get("mix_path"),
+            "mix_sha256": mixed.get("mix_sha256"),
+            "music_stem_path": mixed.get("music_stem_path"),
+            "voice_stem_path": mixed.get("voice_stem_path"),
+            "duration_sec": mixed.get("duration_sec"),
+            "standalone_lane": True,
+            "engine": "speakers_mix.v1",
+        }

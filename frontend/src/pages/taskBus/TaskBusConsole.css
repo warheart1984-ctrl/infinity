@@ -1,0 +1,131 @@
+.middleware-console {
+  max-width: 1100px;
+  margin: 1.25rem auto 3rem;
+  padding: 0 1.25rem;
+  color: #14212b;
+}
+
+.middleware-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  opacity: 0.65;
+  margin: 0 0 0.35rem;
+}
+
+.middleware-hero h1 {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.55rem, 3vw, 2.1rem);
+}
+
+.middleware-lede {
+  max-width: 40rem;
+  line-height: 1.5;
+  margin: 0 0 0.85rem;
+}
+
+.middleware-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.middleware-links a {
+  color: #1f4d4a;
+  font-weight: 600;
+}
+
+.middleware-dispatch {
+  border-top: 1px solid rgba(20, 33, 43, 0.14);
+  padding: 1rem 0 1.25rem;
+}
+
+.middleware-dispatch textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(20, 33, 43, 0.22);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  background: rgba(248, 250, 249, 0.9);
+}
+
+.middleware-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.middleware-controls select {
+  margin-left: 0.35rem;
+}
+
+.middleware-check {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.middleware-controls button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.15rem;
+  background: #1f4d4a;
+  color: #f4f7f6;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.middleware-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.middleware-hint {
+  font-size: 0.88rem;
+  opacity: 0.8;
+}
+
+.middleware-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.aais-panel {
+  border-top: 1px solid rgba(20, 33, 43, 0.12);
+  padding: 0.75rem 0 1rem;
+  min-height: 12rem;
+}
+
+.aais-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.aais-panel h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.92rem;
+}
+
+.aais-adaptive-engine {
+  border-top: 1px solid rgba(20, 33, 43, 0.14);
+  padding-top: 1rem;
+}
+
+.aais-evidence-chip {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+
+@media (max-width: 900px) {
+  .middleware-grid {
+    grid-template-columns: 1fr;
+  }
+}

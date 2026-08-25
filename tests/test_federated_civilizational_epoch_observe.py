@@ -33,17 +33,23 @@ class FederatedCivilizationalEpochObserveTests(unittest.TestCase):
             repo_root / "governance" / "operator_civilization_registry.v1.json",
             gov / "operator_civilization_registry.v1.json",
         )
+        from tests.cen_test_helpers import cen_approved
         save_adopted_civilization(
-            {
-                "civilization_id": "gcv_seed001",
-                "summary": "Seed governed civilization for FCE upstream",
-                "admitted_charter_ids": ["charter_a", "charter_b"],
-            },
+            cen_approved(
+                "governed_civilization",
+                {
+                    "civilization_id": "gcv_seed001",
+                    "summary": "Seed governed civilization for FCE upstream",
+                    "admitted_charter_ids": ["charter_a", "charter_b"],
+                },
+            ),
             repo_root=root,
         )
         self.runtime = FederatedCivilizationalEpochRuntime(
             runtime_dir=Path(self._tmpdir.name), repo_root=root
         )
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.client = api.app.test_client()
 
     def tearDown(self):

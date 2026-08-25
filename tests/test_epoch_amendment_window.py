@@ -46,6 +46,8 @@ class EpochAmendmentWindowTests(unittest.TestCase):
         self.runtime = ConstitutionalEvolutionRuntime(
             runtime_dir=Path(self._tmpdir.name), repo_root=root
         )
+        from tests.cen_test_helpers import enable_cen_autochallenge
+        enable_cen_autochallenge(self.runtime)
         self.candidate = {
             "candidate_id": "amcand_epoch001",
             "charter_id": "charter_test001",

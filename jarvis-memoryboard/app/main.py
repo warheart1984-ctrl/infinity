@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,20 @@ from app.amul import (
     anchor_memory,
     get_field,
     verify_field,
+)
+import app.amul_gc as amul_gc
+from app.amul_rag import (
+    answer_query,
+    get_index,
+    normalize_document,
+    rag_status,
+)
+from app.amul_llm import (
+    PromptContract,
+    ToolCallContract,
+    execute_tool,
+    generate as llm_generate_record,
+    llm_status,
 )
 from app.emr import (
     ExpandRequest,
@@ -105,6 +120,22 @@ def index():
                 "lineage": "GET /api/jarvis/memory/amul/lineage/{memory_id}",
                 "field_status": "GET /api/jarvis/memory/amul/field/status",
                 "verify": "POST /api/jarvis/memory/amul/field/verify",
+                "gc_compact": "POST /api/jarvis/memory/amul/gc/compact",
+                "gc_status": "GET /api/jarvis/memory/amul/gc/status",
+                "gc_verify": "POST /api/jarvis/memory/amul/gc/verify",
+            },
+            "rag": {
+                "store_documents": "POST /api/jarvis/rag/documents",
+                "query": "POST /api/jarvis/rag/query",
+                "replay_log": "GET /api/jarvis/rag/log",
+                "status": "GET /api/jarvis/rag/status",
+            },
+            "llm": {
+                "generate": "POST /api/jarvis/llm/generate",
+                "classify": "POST /api/jarvis/llm/classify?query=",
+                "tools": "GET /api/jarvis/llm/tools",
+                "tools_call": "POST /api/jarvis/llm/tools/call",
+                "status": "GET /api/jarvis/llm/status",
             },
         },
     }
@@ -473,6 +504,7 @@ def amul_field_status():
             "resolution_artifacts": "enforced",
             "lineage_provenance": "enforced",
             "verify_drift": "enforced",
+            "gc_checkpoint_compaction": "enforced",
             "scale_gc_index": "declared",
         },
     }
@@ -480,7 +512,149 @@ def amul_field_status():
 
 @app.post("/api/jarvis/memory/amul/field/verify")
 def amul_field_verify():
-    """Rehash the whole field + detect ledger drift since last anchors."""
+    """GC-aware integrity check + ledger drift detection since last anchors."""
     store = get_store()
     report = verify_field(get_field(), store.list_memories(limit=9999))
     return report.model_dump()
+
+
+# --- AMUL-GC (Verifiable Checkpoint Compactor) ---
+
+
+class GCCompactBody(BaseModel):
+    actor: str = "amul-gc"
+
+
+@app.post("/api/jarvis/memory/amul/gc/compact")
+def amul_gc_compact(body: GCCompactBody | None = None):
+    """Seal the uncheckpointed field prefix into a sha-linked checkpoint."""
+    actor = body.actor if body else "amul-gc"
+    store = get_store()
+    try:
+        report = amul_gc.compact(
+            get_field(), store.list_memories(limit=9999), actor=actor
+        )
+    except amul_gc.GCViolation as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return report.model_dump()
+
+
+@app.get("/api/jarvis/memory/amul/gc/status")
+def amul_gc_status():
+    """Checkpoint chain coverage, cold-tier census, retention law table."""
+    return amul_gc.gc_status(get_field())
+
+
+@app.post("/api/jarvis/memory/amul/gc/verify")
+def amul_gc_verify():
+    """Chain authentication + tail-only payload rehash (O(checkpoints+tail))."""
+    return amul_gc.verify_gc(get_field()).model_dump()
+
+
+# --- AMUL RAG (Adaptive/Modular/Universal/Logical retrieval) ---
+
+
+class RagDocsBody(BaseModel):
+    documents: list[dict[str, Any]] = Field(..., min_length=1, max_length=200)
+
+
+@app.post("/api/jarvis/rag/documents")
+def rag_store_documents(body: RagDocsBody):
+    """StoreDocuments contract: normalize + append to the doc log."""
+    index = get_index()
+    stored = []
+    for raw in body.documents:
+        existing = index.docs.get(str(raw.get("id") or ""))
+        doc = normalize_document(raw, existing_version=existing.version if existing else 0)
+        index.add(doc, persist=True)
+        stored.append(doc.model_dump())
+    return {"stored": len(stored), "documents": stored}
+
+
+class RagQueryBody(BaseModel):
+    query: str = Field(..., min_length=1, max_length=2000)
+
+
+@app.post("/api/jarvis/rag/query")
+def rag_query(body: RagQueryBody):
+    """QueryRAG contract: answer + evidence under the Logical-layer gate.
+
+    Corpus = ingested documents + Continuity Ledger memories (Universal schema).
+    """
+    store = get_store()
+    from app.amul_rag import ledger_docs
+
+    corpus_extra = ledger_docs(store)
+    record = answer_query(body.query, get_index(), extra_docs=corpus_extra)
+    return record.model_dump()
+
+
+@app.get("/api/jarvis/rag/log")
+def rag_replay_log(limit: int = Query(default=20, ge=1, le=500)):
+    """Replay tail: intent, config, docs returned, answer per query."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    from app.amul_rag import RAG_LOG_PATH
+
+    p = _Path(RAG_LOG_PATH)
+    if not p.exists():
+        return {"records": []}
+    lines = [ln for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    out = []
+    for ln in lines[-limit:]:
+        try:
+            out.append(_json.loads(ln))
+        except Exception:
+            continue
+    return {"records": out}
+
+
+@app.get("/api/jarvis/rag/status")
+def rag_layer_status():
+    return rag_status()
+
+
+# --- AMUL LLM (Adaptive/Modular/Universal/Logical inference governance) ---
+
+
+@app.post("/api/jarvis/llm/generate")
+def llm_generate_route(body: PromptContract):
+    """Universal prompt contract -> governed generation + replay record."""
+    try:
+        record = llm_generate_record(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return record
+
+
+@app.post("/api/jarvis/llm/classify")
+def llm_classify(query: str = Query(..., min_length=1, max_length=4000)):
+    """Adaptive layer probe: intent + mode + generation_config."""
+    from app.amul_llm import routing_contract
+
+    return routing_contract(query)
+
+
+@app.get("/api/jarvis/llm/tools")
+def llm_tools():
+    from app.amul_llm import TOOL_REGISTRY
+
+    return {
+        "tools": [
+            {"name": n, "description": s["description"], "schema": s["schema"]}
+            for n, s in sorted(TOOL_REGISTRY.items())
+        ]
+    }
+
+
+@app.post("/api/jarvis/llm/tools/call")
+def llm_tools_call(body: ToolCallContract):
+    """Tool module: schema-validated execution in the registry sandbox."""
+    store = get_store()
+    return execute_tool(body.name, body.arguments, ctx={"store": store})
+
+
+@app.get("/api/jarvis/llm/status")
+def llm_layer_status():
+    return llm_status()

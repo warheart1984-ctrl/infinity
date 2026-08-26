@@ -18,7 +18,8 @@ Maturity (honest tags):
     resolution artifacts (3)     - enforced
     version lineage + provenance - enforced
     verify / drift protocol      - enforced (rehash + ledger cross-check)
-    scale/GC/vector index        - declared (not implemented)
+    checkpoint compaction (GC)   - enforced (app/amul_gc.py, tests/test_amul_gc.py)
+    vector index                 - declared (not implemented)
 """
 
 from __future__ import annotations
@@ -84,6 +85,11 @@ class VerifyReport(BaseModel):
     integrity_failures: list[str] = Field(default_factory=list)  # artifact ids
     drifted_ledger_ids: list[str] = Field(default_factory=list)
     unanchored_ledger_ids: list[str] = Field(default_factory=list)
+    # AMUL-GC: when a valid checkpoint chain exists, covered ranges are
+    # authenticated by range_sha/merkle and only the tail is payload-rehashed.
+    gc_mode: str = "full_rehash"  # full_rehash | checkpoint_chain
+    checkpoints_checked: int = 0
+    tail_lines_rehashed: int = 0
 
 
 def _now_iso() -> str:
@@ -253,17 +259,26 @@ def anchor_memory(rec: MemoryRecord, field: AmulField, actor: str = "amul") -> A
 
 
 def verify_field(field: AmulField, records: list[MemoryRecord]) -> VerifyReport:
-    """Rehash the whole field + cross-check against live ledger state.
+    """Integrity + cross-check against live ledger state.
 
+    Integrity is GC-aware (AMUL-GC): with a valid checkpoint chain, covered
+    ranges authenticate via range_sha/merkle and only the tail is rehashed.
     Drift compares each memory's LATEST detail artifact against live content;
     older versions are preserved history, not drift.
     """
     report = VerifyReport(artifact_count=field.count)
+
+    import app.amul_gc as amul_gc
+
+    gcr = amul_gc.verify_gc(field)
+    report.gc_mode = gcr.mode
+    report.checkpoints_checked = gcr.checkpoints_checked
+    report.tail_lines_rehashed = gcr.tail_lines_rehashed
+    if not gcr.integrity_ok:
+        report.integrity_ok = False
+        report.integrity_failures.extend(gcr.integrity_failures)
+
     all_artifacts = field.all()
-    for art in all_artifacts:
-        if sha256_text(art.payload) != art.payload_sha256:
-            report.integrity_ok = False
-            report.integrity_failures.append(art.artifact_id)
 
     live_by_id = {r.id: r for r in records}
     latest_detail: dict[str, Artifact] = {}

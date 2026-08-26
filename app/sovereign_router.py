@@ -18,10 +18,34 @@ from src.sovereign_state import SovereignStateReader
 
 router = APIRouter(prefix="/sovereign", tags=["sovereign"])
 
-# Process-local bridge singleton; the reader retains no gate access.
+
+def _combined_receipts():
+    """Gate-judgment history first (the demo's living chain); bridge receipts
+    from governed commits flow through when present."""
+    try:
+        from app.sovereign_gate_router import gate_history_receipts
+        history = gate_history_receipts()
+        if history:
+            return history
+    except Exception:
+        pass
+    return cen_governance_bridge.receipts
+
+
+def _combined_certificates():
+    combined = dict(cen_governance_bridge.certificates)
+    try:
+        from app.sovereign_gate_router import gate_history_certificates
+        combined.update(gate_history_certificates())
+    except Exception:
+        pass
+    return combined
+
+
+# Process-local singletons; the reader retains no gate access.
 _reader = SovereignStateReader(
-    receipts_provider=lambda: cen_governance_bridge.receipts,
-    certificates_provider=lambda: cen_governance_bridge.certificates,
+    receipts_provider=_combined_receipts,
+    certificates_provider=_combined_certificates,
 )
 
 

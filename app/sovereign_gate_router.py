@@ -39,6 +39,21 @@ from src.constitutional_enforcement_node import (
 
 router = APIRouter(prefix="/sovereign/gate", tags=["sovereign-gate"])
 
+# The gate's own append-only judgment history. Each judgment runs on a
+# stateless node seeded with the previous gate receipt, so the gate ledger
+# chains across judgments while every individual intent stays re-judgeable.
+GATE_HISTORY: list[dict[str, Any]] = []
+
+
+def gate_history_receipts() -> list[dict[str, Any]]:
+    """Raw chained receipts for read-only consumers (/sovereign/state)."""
+    return [entry["receipt"] for entry in GATE_HISTORY]
+
+
+def gate_history_certificates() -> dict[str, dict[str, Any]]:
+    return {entry["receipt"]["receiptId"]: entry["certificate"]
+            for entry in GATE_HISTORY if entry.get("certificate")}
+
 FORBIDDEN_EFFECTS = ("deploy", "authority_change", "audit_delete")
 LAW_MUTATION_REQUIRED_TOKEN_TYPE = "VT"
 
@@ -92,12 +107,27 @@ def _judge(proposal: GateProposal, approval_token: dict[str, Any] | None) -> dic
     from src.constitutional_enforcement_node import ConstitutionalEnforcementNode
 
     fresh = ConstitutionalEnforcementNode(invariants=list(cen_governance_bridge._invariants))
+    if GATE_HISTORY:
+        # Seed the chain: this judgment links onto the previous gate receipt.
+        fresh._ledger.append(dict(GATE_HISTORY[-1]["receipt"]))
     saved = cen_governance_bridge._node
     cen_governance_bridge._node = fresh
     try:
         return _judge_on_current_node(proposal, approval_token)
     finally:
         cen_governance_bridge._node = saved
+
+
+def _record_history(shaped: dict[str, Any]) -> dict[str, Any]:
+    receipt_id = shaped.get("receipt_id")
+    cert = shaped.get("certificate")
+    if receipt_id and not any(e["receipt"]["receiptId"] == receipt_id for e in GATE_HISTORY):
+        node_receipts = cen_governance_bridge._node.receipts()
+        raw = next((r for r in reversed(node_receipts)
+                    if r["receiptId"] == receipt_id), None)
+        if raw is not None:
+            GATE_HISTORY.append({"receipt": raw, "certificate": cert})
+    return shaped
 
 
 def _judge_on_current_node(proposal: GateProposal, approval_token: dict[str, Any] | None) -> dict[str, Any]:
@@ -117,7 +147,7 @@ def _judge_on_current_node(proposal: GateProposal, approval_token: dict[str, Any
             actor=proposal.actor,
             authority_token=None,
         )
-        return _shape(result, proposal, transition_id, approval=None)
+        return _record_history(_shape(result, proposal, transition_id, approval=None))
 
     if proposal.effect == "write" and approval_token is None:
         # Consequential: wait for the human. No receipt yet — nothing judged.
@@ -140,7 +170,7 @@ def _judge_on_current_node(proposal: GateProposal, approval_token: dict[str, Any
         actor=proposal.actor,
         authority_token=approval_token,
     )
-    return _shape(result, proposal, transition_id, approval=approval_token)
+    return _record_history(_shape(result, proposal, transition_id, approval=approval_token))
 
 
 def _shape(

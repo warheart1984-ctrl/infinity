@@ -107,5 +107,41 @@ class TestSovereignGate(unittest.TestCase):
         self.assertIn("MISMATCH", tampered["detail"])
 
 
+class TestGateHistoryFeedsSovereignState(unittest.TestCase):
+    def test_state_reflects_gate_judgments_and_chains(self):
+        from app import sovereign_router as sr
+        from fastapi import FastAPI
+
+        # Fresh module state for isolation
+        import app.sovereign_gate_router as gr
+        gr.GATE_HISTORY.clear()
+
+        application = FastAPI()
+        application.include_router(router)
+        application.include_router(sr.router)
+        client = TestClient(application)
+
+        self.assertEqual(client.get("/sovereign/state").json()["ledger"]["receipt_count"], 0)
+
+        first = client.post("/sovereign/gate", json=_read()).json()
+        second = client.post("/sovereign/gate", json=dict(
+            _read(), action="swap_policy", effect="authority_change", risk="critical")).json()
+
+        state = client.get("/sovereign/state").json()
+        ledger = state["ledger"]
+        self.assertEqual(ledger["receipt_count"], 2)
+        self.assertTrue(ledger["chain_intact"], "gate history must chain across judgments")
+        head = client.get("/sovereign/epoch").json()
+        self.assertEqual(head["ledger_head_hash"], second["receipt_hash"])
+
+        verdicts = client.get("/sovereign/verdicts?limit=10").json()["verdicts"]
+        ids = {v["receiptId"] for v in verdicts}
+        self.assertIn(first["receipt_id"], ids)
+        self.assertIn(second["receipt_id"], ids)
+        # certificates ride along for allowed judgments
+        allowed = next(v for v in verdicts if v["receiptId"] == first["receipt_id"])
+        self.assertIn("certificate", allowed)
+
+
 if __name__ == "__main__":
     unittest.main()

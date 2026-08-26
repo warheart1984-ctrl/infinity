@@ -82,7 +82,7 @@
   "activation": {
     "order": 2,
     "batch_id": "alt5-summon-wave-2026-06",
-    "notes": "Alt-5 wave 2 \u2014 operator identity lane"
+    "notes": "Alt-5 wave 2 — operator identity lane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
@@ -93,7 +93,7 @@
         "proposal_id": "MP-OPO-001",
         "status": "promoted",
         "schema_delta_ref": "schemas/deltas/operator_profile_organ_MP-OPO-001.json",
-        "notes": "backup: .runtime\\governance\\mutation_backups\\operator_profile_organ_20260603T000012Z.genome.v1.json"
+        "notes": "backup: .runtime/governance/mutation_backups/operator_profile_organ_20260603T000012Z.genome.v1.json"
       }
     ]
   },

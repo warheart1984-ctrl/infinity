@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 intent agency organ does not authorize execution",
+      "Read-only v1 — intent agency organ does not authorize execution",
       "Claim postures limited to asserted, proven, rejected",
       "Agency preservation constitutional values respected"
     ]
@@ -62,7 +62,7 @@
   "activation": {
     "order": 3,
     "batch_id": "alt8-summon-wave-2026-06",
-    "notes": "Alt-8 wave 3 \u2014 intent agency plane"
+    "notes": "Alt-8 wave 3 — intent agency plane"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"

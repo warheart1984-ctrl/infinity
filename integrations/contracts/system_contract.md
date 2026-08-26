@@ -30,10 +30,10 @@ is present.
 
 ## Lower-Level Runtime Endpoints
 
-- `POST /legacy_api/api/jarvis`
-- `POST /legacy_api/api/chat/sessions`
-- `POST /legacy_api/api/chat/sessions/{session_id}/message`
-- `POST /legacy_api/api/jarvis/memory`
+- `POST /api/jarvis`
+- `POST /api/chat/sessions`
+- `POST /api/chat/sessions/{session_id}/message`
+- `POST /api/jarvis/memory`
 
 ## Raw Request: Jarvis Chat
 

@@ -71,7 +71,7 @@ function OperatorBrainSessions() {
     <div className="workflow-page">
       <div className="page-intro">
         <h1>Brain Sessions</h1>
-        <p>Proposal-only Nova Cortex routing — accept, reject, or defer.</p>
+        <p>Proposal-only routing — accept, reject, or defer.</p>
       </div>
       <div className="workflow-page-actions">
         <Link className="workflow-page-link" to="/operator">Console</Link>

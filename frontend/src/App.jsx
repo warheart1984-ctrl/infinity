@@ -6,7 +6,11 @@ import AmplifyAuthGate from './components/AmplifyAuthGate';
 import './App.css';
 
 const routerBasename = (() => {
-  const configuredBasename = import.meta?.env?.VITE_ROUTER_BASENAME || '';
+  // Vite only statically replaces direct `import.meta.env.VITE_*` / `BASE_URL`
+  // access. Optional chaining (`import.meta?.env?.…`) leaves basename empty in
+  // production, so links navigate to `/jarvis` (404) instead of `/app/jarvis`.
+  const configuredBasename =
+    import.meta.env.VITE_ROUTER_BASENAME || import.meta.env.BASE_URL || '';
   const value = String(configuredBasename).trim();
   if (!value || value === '/') {
     return undefined;
@@ -16,12 +20,14 @@ const routerBasename = (() => {
 
 const JarvisPage = lazy(() => import('./pages/JarvisPage'));
 const RepoManager = lazy(() => import('./pages/RepoManager'));
-const NovaPage = lazy(() => import('./pages/NovaPage'));
 const MemoryBank = lazy(() => import('./pages/MemoryBank'));
 const TextGenerator = lazy(() => import('./pages/TextGenerator'));
 const ImageAnalyzer = lazy(() => import('./pages/ImageAnalyzer'));
 const ImageGenerator = lazy(() => import('./pages/ImageGenerator'));
 const AudioProcessor = lazy(() => import('./pages/AudioProcessor'));
+const AdaptiveMusic = lazy(() => import('./pages/AdaptiveMusic'));
+const HoloRt4dSpatialVision = lazy(() => import('./pages/HoloRt4dSpatialVision'));
+const ModelLibrary = lazy(() => import('./pages/ModelLibrary'));
 const BatchProcessor = lazy(() => import('./pages/BatchProcessor'));
 const History = lazy(() => import('./pages/History'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -36,6 +42,8 @@ const WorkflowTemplates = lazy(() => import('./pages/WorkflowTemplates'));
 const OperatorConsole = lazy(() => import('./pages/OperatorConsole'));
 const InfinityKernelPage = lazy(() => import('./pages/InfinityKernel'));
 const OperatorPlugins = lazy(() => import('./pages/OperatorPlugins'));
+const OperatorOauthCallback = lazy(() => import('./pages/OperatorOauthCallback'));
+const TaskBus = lazy(() => import('./pages/taskBus/TaskBusConsole'));
 const OperatorBrainSessions = lazy(() => import('./pages/OperatorBrainSessions'));
 const OperatorLedger = lazy(() => import('./pages/OperatorLedger'));
 const OperatorCeilingRecovery = lazy(() => import('./pages/OperatorCeilingRecovery'));
@@ -62,18 +70,25 @@ function RouteFallback() {
 
 function AppShell() {
   const location = useLocation();
-  const isNovaRoute = location.pathname === '/' || location.pathname.startsWith('/nova');
-  const isJarvisRoute = location.pathname.startsWith('/jarvis');
+  const isJarvisRoute =
+    location.pathname === '/'
+    || location.pathname.startsWith('/jarvis')
+    || location.pathname.startsWith('/nova')
+    || location.pathname.startsWith('/operator')
+    || location.pathname.startsWith('/platform')
+    || location.pathname.startsWith('/adaptive-music')
+    || location.pathname.startsWith('/holo-rt4d')
+    || location.pathname.startsWith('/spatial-vision');
 
   return (
-    <div className={`App ${isNovaRoute ? 'App--nova' : ''} ${isJarvisRoute ? 'App--jarvis' : ''}`}>
+    <div className={`App ${isJarvisRoute ? 'App--jarvis' : ''}`}>
       <Navbar />
-      <main className={`main-content ${isNovaRoute ? 'main-content--nova' : ''} ${isJarvisRoute ? 'main-content--jarvis' : ''}`}>
+      <main className={`main-content ${isJarvisRoute ? 'main-content--jarvis' : ''}`}>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<NovaPage />} />
-            <Route path="/nova" element={<NovaPage />} />
-            <Route path="/nova-the-north-star" element={<NovaPage />} />
+            <Route path="/" element={<Navigate to="/jarvis" replace />} />
+            <Route path="/nova" element={<Navigate to="/jarvis" replace />} />
+            <Route path="/nova-the-north-star" element={<Navigate to="/jarvis" replace />} />
             <Route path="/jarvis" element={<JarvisPage />} />
             <Route path="/kernel" element={<InfinityKernelPage />} />
             <Route path="/jarvis/repo-manager" element={<RepoManager />} />
@@ -86,6 +101,10 @@ function AppShell() {
             <Route path="/image-analyzer" element={<ImageAnalyzer />} />
             <Route path="/image-generator" element={<ImageGenerator />} />
             <Route path="/audio-processor" element={<AudioProcessor />} />
+            <Route path="/adaptive-music" element={<AdaptiveMusic />} />
+            <Route path="/holo-rt4d" element={<HoloRt4dSpatialVision />} />
+            <Route path="/spatial-vision" element={<Navigate to="/holo-rt4d" replace />} />
+            <Route path="/model-library" element={<ModelLibrary />} />
             <Route path="/batch-processor" element={<BatchProcessor />} />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
@@ -94,10 +113,15 @@ function AppShell() {
             <Route path="/workflows/runs/:runId" element={<WorkflowRunDetail />} />
             <Route path="/workflows/approvals" element={<WorkflowApprovals />} />
             <Route path="/workflows/templates" element={<WorkflowTemplates />} />
+            <Route path="/task-bus" element={<TaskBus />} />
+            <Route path="/middleware" element={<TaskBus />} />
             <Route path="/auth/sign-in" element={<AmplifySignIn />} />
             <Route element={<AmplifyAuthGate />}>
               <Route path="/operator" element={<OperatorConsole />} />
               <Route path="/operator/plugins" element={<OperatorPlugins />} />
+              <Route path="/operator/oauth/callback" element={<OperatorOauthCallback />} />
+              <Route path="/operator/task-bus" element={<Navigate to="/task-bus" replace />} />
+              <Route path="/operator/middleware" element={<Navigate to="/middleware" replace />} />
               <Route path="/operator/brain" element={<OperatorBrainSessions />} />
               <Route path="/operator/ceiling" element={<OperatorCeilingRecovery />} />
               <Route path="/operator/ledger" element={<OperatorLedger />} />
@@ -113,7 +137,7 @@ function AppShell() {
               <Route path="/platform/marketplace" element={<PlatformMarketplace />} />
             </Route>
             <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/jarvis" replace />} />
           </Routes>
         </Suspense>
       </main>

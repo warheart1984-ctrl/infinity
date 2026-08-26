@@ -3132,6 +3132,7 @@ class JarvisOperator:
             profile_detector=self.detect_workspace_profile,
             governance_layer=self.project_infi_law,
             patchforge=self.patchforge if hasattr(self, "patchforge") else None,
+            spatial_plug=self.spatial_reasoning,
         )
 
     def list_actions(self):

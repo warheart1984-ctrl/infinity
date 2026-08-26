@@ -1,0 +1,30 @@
+{
+  "name": "aais-middleware",
+  "version": "0.1.0",
+  "description": "AAIS Middleware — Constitutional Multi-Provider Orchestration Layer",
+  "type": "module",
+  "main": "dist/orchestrator/task_orchestrator.js",
+  "types": "dist/orchestrator/task_orchestrator.d.ts",
+  "bin": {
+    "aais-middleware-dispatch": "./bin/dispatch.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');const p='dist/src/policy_core';fs.mkdirSync(p,{recursive:true});fs.copyFileSync('src/policy_core/compliance_rules.json',p+'/compliance_rules.json')\"",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "dispatch": "node bin/dispatch.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.12",
+    "react": "^18.3.1",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  }
+}

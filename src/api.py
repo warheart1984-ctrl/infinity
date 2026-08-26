@@ -6703,15 +6703,44 @@ def _default_new_session_provider(*, requested_provider_mode: str | None = None,
     return provider_registry.get_default_name() or "local"
 
 
-def _get_session_fallback_provider(session):
-    """Resolve the stable fallback provider for one session."""
-    fallback = normalize_provider_identifier(
-        (session.metadata or {}).get("provider_fallback"),
-        default="local",
+def _get_session_fallback_provider(session, *, failed_provider: str | None = None):
+    """Resolve session fallback; on failure walk the free-cloud failover chain."""
+    metadata = dict(session.metadata or {})
+    explicit = normalize_provider_identifier(
+        metadata.get("provider_fallback"),
+        default="",
     )
-    if not provider_registry.can_invoke(fallback):
-        fallback = provider_registry.get_default_name() or "local"
-    return fallback
+
+    # Session setup / stable fallback: keep an explicit override or local.
+    if not failed_provider:
+        if explicit and explicit not in {"", "auto", "auto_best"} and provider_registry.can_invoke(explicit):
+            return explicit
+        fallback = "local"
+        if not provider_registry.can_invoke(fallback):
+            fallback = provider_registry.get_default_name() or "local"
+        return fallback
+
+    from src.providers.free_cloud_failover import next_free_cloud_provider
+
+    if explicit and explicit not in {"", "auto", "auto_best", "local"} and provider_registry.can_invoke(explicit):
+        if explicit != normalize_provider_identifier(failed_provider, default=""):
+            return explicit
+
+    tried = {
+        normalize_provider_identifier(item, default="")
+        for item in (metadata.get("provider_failover_tried") or [])
+        if str(item or "").strip()
+    }
+    tried.add(normalize_provider_identifier(failed_provider, default=""))
+
+    nxt = next_free_cloud_provider(
+        failed_provider,
+        can_invoke=provider_registry.can_invoke,
+        already_tried={item for item in tried if item},
+    )
+    if nxt:
+        return nxt
+    return provider_registry.get_default_name() or "local"
 
 
 def _build_provider_notice(session):
@@ -6815,9 +6844,11 @@ def _should_fallback_remote_provider(session, exc):
 
 
 def _apply_remote_provider_fallback(session, exc, *, response_trace=None):
-    """Switch the current turn back to the local provider after a transient remote failure."""
+    """Failover to the next free-cloud provider (then local) after a transient remote failure."""
     if not _should_fallback_remote_provider(session, exc):
         return None
+
+    from src.providers.free_cloud_failover import record_failover_lineage
 
     current_route = dict(session.metadata.get("model_route") or {})
     failed_provider = str(current_route.get("provider") or "remote").strip().lower()
@@ -6828,7 +6859,14 @@ def _apply_remote_provider_fallback(session, exc, *, response_trace=None):
         else failed_provider.replace("_", " ").title()
     )
     reason = _summarize_remote_provider_error(failed_provider, exc)
-    fallback_provider = _get_session_fallback_provider(session)
+    tried = list(session.metadata.get("provider_failover_tried") or [])
+    if failed_provider and failed_provider not in tried:
+        tried.append(failed_provider)
+    session.metadata["provider_failover_tried"] = tried
+
+    fallback_provider = _get_session_fallback_provider(session, failed_provider=failed_provider)
+    if fallback_provider == failed_provider:
+        return None
     fallback_config = provider_registry.get_config(fallback_provider)
     fallback_label = (
         fallback_config.display_name
@@ -6841,19 +6879,31 @@ def _apply_remote_provider_fallback(session, exc, *, response_trace=None):
     fallback_route["provider_label"] = fallback_label
     fallback_route["provider_kind"] = (fallback_config.meta or {}).get("kind", "local") if fallback_config else "local"
     fallback_route["provider_reason"] = f"fallback_from_{failed_provider}"
-    fallback_route["provider_model"] = None
-    fallback_route["execution_backend"] = "local_model" if fallback_provider == "local" else "remote_provider"
+    fallback_route["provider_model"] = (fallback_config.meta or {}).get("model") if fallback_config else None
+    fallback_route["execution_backend"] = (
+        "local_model" if fallback_provider in {"local", "god_brain"} else "remote_provider"
+    )
     session.metadata["model_route"] = fallback_route
+    session.metadata["preferred_provider"] = fallback_provider
+
+    record_failover_lineage(
+        session_id=getattr(session, "id", None) or session.metadata.get("session_id"),
+        session_metadata=session.metadata,
+        failed_provider=failed_provider,
+        next_provider=fallback_provider,
+        reason=reason,
+    )
 
     notice = {
         "status": "fallback",
         "fallback_kind": "runtime_error",
+        "failover_chain": list(tried) + [fallback_provider],
         "requested_provider": failed_provider,
         "requested_label": requested_label,
         "resolved_provider": fallback_provider,
         "resolved_label": fallback_label,
         "reason": reason,
-        "summary": f"{reason} Jarvis fell back to {fallback_label} for this turn.",
+        "summary": f"{reason} Jarvis failed over to {fallback_label} for this turn.",
     }
     session.metadata["provider_notice"] = notice
 
@@ -8312,6 +8362,84 @@ def generate_image():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/image/img2img", methods=["POST"])
+def generate_image_to_image():
+    """Transform an uploaded image with a text prompt (image-to-image)."""
+    try:
+        try:
+            from PIL import Image
+        except ImportError as exc:
+            raise RuntimeError("Image uploads are unavailable on this deployment.") from exc
+
+        prompt = (request.form.get("prompt") or "").strip()
+        if not prompt and request.is_json:
+            data = request.get_json(silent=True) or {}
+            prompt = str(data.get("prompt") or "").strip()
+
+        if not prompt:
+            return jsonify({"error": "Prompt is required"}), 400
+        if "image" not in request.files:
+            return jsonify({"error": "Image file is required"}), 400
+
+        num_steps = request.form.get("num_inference_steps") or 40
+        strength = request.form.get("strength") or 0.65
+        guidance_scale = request.form.get("guidance_scale") or 7.5
+        try:
+            num_steps = int(num_steps)
+            strength = float(strength)
+            guidance_scale = float(guidance_scale)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid num_inference_steps, strength, or guidance_scale"}), 400
+
+        strength = max(0.05, min(strength, 1.0))
+        image = Image.open(request.files["image"].stream).convert("RGB")
+        result = _run_with_inference_lock(
+            lambda: init_ai()[0].generate_image_to_image(
+                prompt,
+                image,
+                num_inference_steps=num_steps,
+                strength=strength,
+                guidance_scale=guidance_scale,
+            )
+        )
+
+        buffer = BytesIO()
+        result.save(buffer, format="PNG")
+        image_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+        try:
+            from src.ul_lineage import record_lineage_event
+
+            record_lineage_event(
+                node_type="capability_call",
+                cisiv_stage="implementation",
+                claim_label="asserted",
+                source_module="src.api.generate_image_to_image",
+                payload={"capability": "image_img2img", "steps": num_steps},
+            )
+        except Exception:
+            pass
+
+        return jsonify(
+            {
+                "image": image_base64,
+                "format": "png",
+                "model": "img2img",
+                "num_inference_steps": num_steps,
+                "strength": strength,
+            }
+        )
+    except RuntimeError as e:
+        logger.warning(f"Img2img disabled or unavailable: {str(e)}")
+        return jsonify({"error": str(e)}), 503
+    except ImportError as e:
+        logger.warning(f"Img2img unavailable: {str(e)}")
+        return jsonify({"error": "Image-to-image is unavailable on this deployment."}), 503
+    except Exception as e:
+        logger.error(f"Error in generate_image_to_image: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/multimodal/query", methods=["POST"])
 def multimodal_query():
     """Process combined text and image query."""
@@ -8866,6 +8994,51 @@ def get_capability_bridge():
         )
     except Exception as e:
         logger.error(f"Error reading capability bridge snapshot: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/task-bus/status", methods=["GET"])
+@app.route("/api/jarvis/task-bus/catalog", methods=["GET"])
+def get_task_bus_status():
+    """Constitutional Task Bus lane catalog and auth posture."""
+    try:
+        from src.constitutional_task_bus import task_bus_status
+
+        catalog = task_bus_status()
+        return jsonify({"ok": True, **catalog}), 200
+    except Exception as e:
+        logger.error(f"Error reading task bus status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/task-bus/dispatch", methods=["POST"])
+def post_task_bus_dispatch():
+    """Primary ingress: Intent → Evidence → Authority → Decision (aais-middleware)."""
+    try:
+        from src.constitutional_task_bus import cache_trace, dispatch_task_bus_request
+
+        body = request.get_json(silent=True) or {}
+        result = dispatch_task_bus_request(body)
+        cache_trace(result)
+        status = 200 if result.get("ok") else 422
+        return jsonify(_serialize_api_payload(result)), status
+    except Exception as e:
+        logger.error(f"Error dispatching task bus request: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/task-bus/trace/<trace_id>", methods=["GET"])
+def get_task_bus_trace(trace_id: str):
+    """Return a cached middleware trace when available."""
+    try:
+        from src.constitutional_task_bus import get_cached_trace
+
+        row = get_cached_trace(trace_id)
+        if not row:
+            return jsonify({"error": "trace not found", "trace_id": trace_id}), 404
+        return jsonify(_serialize_api_payload(row)), 200
+    except Exception as e:
+        logger.error(f"Error reading task bus trace: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -11274,6 +11447,40 @@ def list_providers():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/jarvis/model-library", methods=["GET"])
+def list_model_library():
+    """Multimodal model library: chat, image, img2img, voice, music + free failover order."""
+    try:
+        from src.providers.frontier_model_library import library_snapshot
+
+        provider_registry.refresh()
+        modality = request.args.get("modality")
+        free_only = str(request.args.get("free_only") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        snapshot = library_snapshot(provider_status=provider_registry.list_status())
+        if modality or free_only:
+            entries = [
+                entry
+                for entry in snapshot["entries"]
+                if (not modality or entry.get("modality") == modality)
+                and (not free_only or entry.get("free_tier"))
+            ]
+            snapshot["entries"] = entries
+            by_modality: dict = {}
+            for entry in entries:
+                by_modality.setdefault(str(entry.get("modality")), []).append(entry)
+            snapshot["by_modality"] = by_modality
+            snapshot["counts"] = {key: len(value) for key, value in sorted(by_modality.items())}
+        return jsonify(attach_ul_substrate(snapshot))
+    except Exception as e:
+        logger.error(f"Error listing model library: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/jarvis/protocol", methods=["GET"])
 def get_jarvis_protocol():
     """Expose the canonical Jarvis protocol contract and optional session preview."""
@@ -12703,6 +12910,147 @@ def get_speakers_lane_organ_status():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/jarvis/beatbox-lane/score", methods=["POST"])
+def post_beatbox_lane_score():
+    """Compose a deterministic Beatbox arrangement score (stems, no Speakers mix)."""
+    try:
+        from src.adaptive_music_runtime import compose_score
+
+        payload = request.json or {}
+        scored = _run_with_inference_lock(lambda: compose_score(payload))
+        return jsonify(attach_ul_substrate(scored))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error composing beatbox score: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/speakers-lane/mix", methods=["POST"])
+def post_speakers_lane_mix():
+    """Mix Beatbox music + guide-vocal stems with Speakers ducking."""
+    try:
+        from src.adaptive_music_runtime import mix_stems
+
+        payload = request.json or {}
+        mixed = _run_with_inference_lock(lambda: mix_stems(payload))
+        mixed["audio"] = ""
+        mix_path = mixed.get("mix_path")
+        if mix_path:
+            try:
+                from pathlib import Path as _Path
+
+                mixed["audio"] = base64.b64encode(_Path(mix_path).read_bytes()).decode("ascii")
+                mixed["format"] = "wav"
+            except OSError:
+                mixed["audio"] = ""
+        return jsonify(attach_ul_substrate(mixed))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error mixing speakers stems: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/adaptive-music/compose", methods=["POST"])
+def post_adaptive_music_compose():
+    """Compose Beatbox score and Speakers mix in one bounded operator call."""
+    try:
+        from src.adaptive_music_runtime import compose_and_mix
+        from src.mandala_music_synesthesia import derive_visual_adaptation
+        from src.spatial_score_couple import apply_spatial_score_couple
+
+        payload = apply_spatial_score_couple(request.json or {})
+        include_audio = str(payload.get("include_audio", "true")).strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        include_mandala = str(payload.get("include_mandala_sync", "true")).strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        result = _run_with_inference_lock(
+            lambda: compose_and_mix(payload, include_audio=include_audio)
+        )
+        if include_mandala and isinstance(result, dict):
+            sync_payload = dict(payload)
+            sync_payload.update(
+                {
+                    "mood": result.get("mood") or payload.get("mood"),
+                    "bpm": result.get("bpm") or payload.get("bpm"),
+                    "duration_sec": result.get("duration_sec") or payload.get("duration_sec"),
+                    "cue_plan": result.get("cue_plan") or {},
+                    "mix_sha256": result.get("mix_sha256") or "",
+                    "session_id": result.get("session_id") or "",
+                    "scene_id": result.get("scene_id") or "",
+                }
+            )
+            result["mandala_visual_plan"] = derive_visual_adaptation(sync_payload)
+        if isinstance(result, dict) and payload.get("spatial_score_couple_receipt"):
+            result["spatial_score_couple_receipt"] = payload["spatial_score_couple_receipt"]
+        return jsonify(attach_ul_substrate(result))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error composing adaptive music: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/adaptive-music/mandala-sync", methods=["POST"])
+def post_adaptive_music_mandala_sync():
+    """Derive MandalaVisualAdaptationPlan from score cues / scene axes (plan-only)."""
+    try:
+        from src.mandala_music_synesthesia import derive_visual_adaptation
+
+        payload = request.json or {}
+        plan = derive_visual_adaptation(payload)
+        return jsonify(attach_ul_substrate(plan))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error deriving mandala visual adaptation: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/adaptive-music/sovereign-sound-loop", methods=["POST"])
+def post_sovereign_sound_loop():
+    """Guided SovereignSoundLoop: scene axes → score → mix → Mandala → optional Holo."""
+    try:
+        from src.sovereign_sound_loop import run_sovereign_sound_loop
+
+        payload = request.json or {}
+        result = _run_with_inference_lock(lambda: run_sovereign_sound_loop(payload))
+        return jsonify(attach_ul_substrate(result))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error running sovereign sound loop: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/adaptive-music/spatial-score-couple", methods=["POST"])
+def post_spatial_score_couple():
+    """Map Holo visibility/occlusion into adaptive compose mood/tension axes."""
+    try:
+        from src.spatial_score_couple import apply_spatial_score_couple, visibility_axes_from_probe
+
+        payload = request.json or {}
+        if payload.get("probe_only"):
+            axes = visibility_axes_from_probe(payload.get("holo_probe") or payload)
+            return jsonify(attach_ul_substrate(axes))
+        coupled = apply_spatial_score_couple(payload)
+        return jsonify(attach_ul_substrate(coupled))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error applying spatial score couple: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/jarvis/human-voice-extraction/status", methods=["GET"])
 def get_human_voice_extraction_organ_status():
     """Read-only Human Voice Extraction organ snapshot (Alt-13 wave)."""
@@ -12892,6 +13240,50 @@ def get_spatial_reasoning_organ_status():
         )
     except Exception as e:
         logger.error(f"Error reading spatial reasoning organ status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/holo-rt4d-spatial-vision/status", methods=["GET"])
+def get_holo_rt4d_spatial_vision_status():
+    """Read-only HoloRT4D spatial vision engine posture."""
+    try:
+        from src.holo_runtime_4d_spatial_vision import build_holo_rt4d_spatial_vision_status
+
+        plug = getattr(jarvis_operator, "spatial_reasoning", None)
+        return jsonify(
+            attach_ul_substrate(
+                {
+                    "holo_rt4d_spatial_vision": build_holo_rt4d_spatial_vision_status(
+                        plug=plug
+                    )
+                }
+            )
+        )
+    except Exception as e:
+        logger.error(f"Error reading HoloRT4D spatial vision status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jarvis/holo-rt4d-spatial-vision/probe", methods=["POST"])
+def post_holo_rt4d_spatial_vision_probe():
+    """Run one HoloRT4D spatial-vision probe with map layout for the console surface."""
+    try:
+        from src.holo_runtime_4d_spatial_vision import probe_spatial_vision
+
+        payload = request.json or {}
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Request body must be a JSON object"}), 400
+        request_payload = dict(payload)
+        request_payload.setdefault("include_layout", True)
+        frame = probe_spatial_vision(
+            request_payload,
+            plug=getattr(jarvis_operator, "spatial_reasoning", None),
+        )
+        return jsonify(attach_ul_substrate(frame))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error probing HoloRT4D spatial vision: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -18148,6 +18540,67 @@ def synthesize_speech_download():
 
     except Exception as e:
         logger.error(f"Error in synthesize_speech_download: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/audio/music/generate", methods=["POST"])
+def generate_music():
+    """Generate a short music clip from a text prompt (MusicGen or synthetic preview)."""
+    try:
+        data = request.json or {}
+        prompt = str(data.get("prompt") or "").strip()
+        if not prompt:
+            return jsonify({"error": "Prompt is required"}), 400
+        duration_sec = data.get("duration_sec", 6.0)
+        try:
+            duration_sec = float(duration_sec)
+        except (TypeError, ValueError):
+            return jsonify({"error": "duration_sec must be a number"}), 400
+
+        music_module = _load_module("src.music_generation")
+        result = _run_with_inference_lock(
+            lambda: music_module.music_generation_adapter.generate(
+                prompt,
+                duration_sec=duration_sec,
+            )
+        )
+        audio_b64 = base64.b64encode(result["audio"]).decode()
+        try:
+            from src.ul_lineage import record_lineage_event
+
+            record_lineage_event(
+                node_type="capability_call",
+                cisiv_stage="implementation",
+                claim_label="asserted",
+                source_module="src.api.generate_music",
+                payload={
+                    "capability": "music_generate",
+                    "model": result.get("model"),
+                    "duration_sec": result.get("duration_sec"),
+                },
+            )
+        except Exception:
+            pass
+        return jsonify(
+            {
+                "audio": audio_b64,
+                "format": result.get("format") or "wav",
+                "sample_rate": result.get("sample_rate"),
+                "model": result.get("model"),
+                "duration_sec": result.get("duration_sec"),
+                "prompt": result.get("prompt"),
+            }
+        )
+    except RuntimeError as e:
+        logger.warning(f"Music generation disabled or unavailable: {e}")
+        return jsonify({"error": str(e)}), 503
+    except ImportError as e:
+        logger.warning(f"Music generation unavailable: {e}")
+        return jsonify({"error": "Music generation is unavailable on this deployment."}), 503
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in generate_music: {e}")
         return jsonify({"error": str(e)}), 500
 
 

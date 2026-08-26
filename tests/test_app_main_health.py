@@ -19,6 +19,8 @@ class TestCanonicalHealth(unittest.TestCase):
         self.assertIn("post", paths["/api/jarvis"])
         self.assertIn("/api/memory/write", paths)
         self.assertIn("post", paths["/api/memory/write"])
+        self.assertIn("/api/audio/transcribe", paths)
+        self.assertIn("post", paths["/api/audio/transcribe"])
         self.assertNotIn("/chat", paths)
         self.assertNotIn("/chat/stream", paths)
 

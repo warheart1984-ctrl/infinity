@@ -16,7 +16,7 @@
       "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md"
     ],
     "invariants": [
-      "Read-only v1 \u2014 reflection organ does not override Jarvis authority",
+      "Read-only v1 — reflection organ does not override Jarvis authority",
       "Stages remain expect, compare, learn, adjust",
       "runtime_id frozen to cognitive.reflection"
     ]
@@ -65,7 +65,7 @@
   "activation": {
     "order": 1,
     "batch_id": "alt5-summon-wave-2-2026-06",
-    "notes": "Alt-5 wave 2 \u2014 meta-cognitive loop"
+    "notes": "Alt-5 wave 2 — meta-cognitive loop"
   },
   "retirement": {
     "path": "docs/contracts/AAIS_SUBSYSTEM_RETIREMENT_PROTOCOL.md",

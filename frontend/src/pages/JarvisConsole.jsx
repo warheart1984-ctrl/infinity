@@ -241,6 +241,30 @@ const cockpitToolLinks = [
     to: '/image-analyzer',
   },
   {
+    id: 'holo-rt4d',
+    label: 'HoloRT4D Spatial Vision',
+    detail: 'Scrub ticks and watch visibility rays across the operator grid.',
+    to: '/holo-rt4d',
+  },
+  {
+    id: 'adaptive-score',
+    label: 'Adaptive Score',
+    detail: 'Beatbox compose + Speakers mix with Mandala plan preview.',
+    to: '/adaptive-music',
+  },
+  {
+    id: 'beatbox-speakers',
+    label: 'Beatbox / Speakers',
+    detail: 'Score stems and Speakers ducking lane — same path as Adaptive Score.',
+    to: '/adaptive-music',
+  },
+  {
+    id: 'sovereign-sound',
+    label: 'Sovereign Sound Loop',
+    detail: 'Scene → score → mix → Mandala → optional Holo probe.',
+    to: '/adaptive-music?panel=sovereign-sound',
+  },
+  {
     id: 'prompt',
     label: 'Prompt Lab',
     detail: 'Draft, generate, and refine prompt-driven output.',
@@ -263,6 +287,12 @@ const cockpitToolLinks = [
     label: 'Workflow Builder',
     detail: 'Wire approvals, routing, and automation steps.',
     to: '/workflows',
+  },
+  {
+    id: 'task_bus',
+    label: 'Task & Skills Bus',
+    detail: 'Plan / write / code / pictures under one governed trace.',
+    to: '/task-bus',
   },
 ];
 
@@ -553,6 +583,197 @@ function buildCapabilityInputFields(capabilityId, actionId) {
     ];
   }
 
+  if (
+    normalizedCapabilityId === 'holo_rt4d'
+    || normalizedCapabilityId === 'holo_rt4d_spatial_vision'
+    || normalizedCapabilityId === 'spatial_vision'
+  ) {
+    return [
+      normalizeCapabilityField({
+        id: 'space_id',
+        label: 'Space Id',
+        type: 'text',
+        default: 'holo_rt4d_demo',
+        placeholder: 'holo_rt4d_demo',
+      }),
+      normalizeCapabilityField({
+        id: 'observer',
+        label: 'Observer',
+        type: 'text',
+        default: 'observer',
+        placeholder: 'observer node or entity',
+      }),
+      normalizeCapabilityField({
+        id: 'targets',
+        label: 'Targets',
+        type: 'text',
+        placeholder: 'scout, beacon, north (blank = auto)',
+      }),
+      normalizeCapabilityField({
+        id: 'tick',
+        label: 'Tick (4D)',
+        type: 'text',
+        default: '0',
+        placeholder: '0',
+      }),
+      normalizeCapabilityField({
+        id: 'seed_demo',
+        label: 'Seed Demo Space',
+        type: 'boolean',
+        default: true,
+      }),
+    ];
+  }
+
+  if (
+    normalizedCapabilityId === 'adaptive_music'
+    || normalizedCapabilityId === 'adaptive_music_compose'
+    || normalizedCapabilityId === 'beatbox'
+    || normalizedCapabilityId === 'beatbox_score'
+  ) {
+    return [
+      normalizeCapabilityField({
+        id: 'mood',
+        label: 'Mood',
+        type: 'text',
+        default: 'focused',
+        placeholder: 'calm | focused | intense | happy',
+      }),
+      normalizeCapabilityField({
+        id: 'energy',
+        label: 'Energy',
+        type: 'text',
+        default: '62',
+      }),
+      normalizeCapabilityField({
+        id: 'tension',
+        label: 'Tension',
+        type: 'text',
+        default: '40',
+      }),
+      normalizeCapabilityField({
+        id: 'duration_sec',
+        label: 'Duration (sec)',
+        type: 'text',
+        default: '6',
+      }),
+      normalizeCapabilityField({
+        id: 'description',
+        label: 'Scene / Intent',
+        type: 'textarea',
+        placeholder: 'Narrative pacing or operator intent',
+      }),
+      normalizeCapabilityField({
+        id: 'include_mandala_sync',
+        label: 'Include Mandala Plan',
+        type: 'boolean',
+        default: true,
+      }),
+    ];
+  }
+
+  if (normalizedCapabilityId === 'speakers' || normalizedCapabilityId === 'speakers_mix') {
+    return [
+      normalizeCapabilityField({
+        id: 'music_stem_path',
+        label: 'Music Stem Path',
+        type: 'text',
+        placeholder: 'from Beatbox score receipt',
+      }),
+      normalizeCapabilityField({
+        id: 'voice_stem_path',
+        label: 'Voice Stem Path',
+        type: 'text',
+      }),
+      normalizeCapabilityField({
+        id: 'profile_id',
+        label: 'Voice Profile Id',
+        type: 'text',
+        placeholder: 'optional HumanVoice constraints',
+      }),
+    ];
+  }
+
+  if (normalizedCapabilityId === 'mandala' || normalizedCapabilityId === 'mandala_visual_sync') {
+    return [
+      normalizeCapabilityField({
+        id: 'mood',
+        label: 'Mood',
+        type: 'text',
+        default: 'focused',
+      }),
+      normalizeCapabilityField({
+        id: 'bpm',
+        label: 'BPM',
+        type: 'text',
+        default: '120',
+      }),
+      normalizeCapabilityField({
+        id: 'energy',
+        label: 'Energy',
+        type: 'text',
+        default: '62',
+      }),
+      normalizeCapabilityField({
+        id: 'tension',
+        label: 'Tension',
+        type: 'text',
+        default: '40',
+      }),
+    ];
+  }
+
+  if (
+    normalizedCapabilityId === 'story_forge'
+    || normalizedCapabilityId === 'story_forge_audio'
+  ) {
+    return [
+      normalizeCapabilityField({
+        id: 'rendered_video_path',
+        label: 'Rendered Video Path',
+        type: 'text',
+        required: true,
+        placeholder: '/path/to/rendered.mp4',
+      }),
+      normalizeCapabilityField({
+        id: 'dialogue_lines',
+        label: 'Dialogue Lines',
+        type: 'textarea',
+      }),
+      normalizeCapabilityField({
+        id: 'narration_lines',
+        label: 'Narration Lines',
+        type: 'textarea',
+      }),
+    ];
+  }
+
+  if (
+    normalizedCapabilityId === 'human_voice_speakers'
+    || normalizedCapabilityId === 'human_voice_speakers_pipeline'
+  ) {
+    return [
+      normalizeCapabilityField({
+        id: 'notes_text',
+        label: 'Voice Notes',
+        type: 'textarea',
+        placeholder: 'Operator notes describing the human voice profile',
+      }),
+      normalizeCapabilityField({
+        id: 'auto_signoff',
+        label: 'Auto Signoff',
+        type: 'boolean',
+        default: true,
+      }),
+      normalizeCapabilityField({
+        id: 'signoff_by',
+        label: 'Signoff By',
+        type: 'text',
+        default: 'operator',
+      }),
+    ];
+  }
+
   if (normalizedCapabilityId === 'v9_core' || normalizedCapabilityId === 'v10_core') {
     return [
       normalizeCapabilityField({
@@ -785,6 +1006,55 @@ const DEFAULT_CAPABILITY_BRIDGE_SNAPSHOT = buildCapabilityBridgeSnapshot([
     summary: 'Run governed line-of-sight, path, distance, and spatial-state checks.',
     module: 'spatial',
     actions: [{ id: 'reason', tool: 'spatial_reason', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'holo_rt4d',
+    label: 'HoloRT4D Spatial Vision',
+    summary: 'Probe governed 4D spatial vision: observer visibility, occlusion, and depth order.',
+    module: 'holo_rt4d_spatial_vision',
+    actions: [{ id: 'probe', tool: 'holo_rt4d_spatial_vision', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'adaptive_music',
+    label: 'Adaptive Music Compose',
+    summary: 'Compose Beatbox score and Speakers mix; optional Mandala visual plan.',
+    module: 'adaptive_music_compose',
+    actions: [{ id: 'compose', tool: 'adaptive_music_compose', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'beatbox',
+    label: 'Beatbox Score',
+    summary: 'Compose a deterministic Beatbox arrangement from scene axes.',
+    module: 'beatbox_score',
+    actions: [{ id: 'score', tool: 'beatbox_score', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'speakers',
+    label: 'Speakers Mix',
+    summary: 'Duck and render a Speakers final mix from Beatbox stems.',
+    module: 'speakers_mix',
+    actions: [{ id: 'mix', tool: 'speakers_mix', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'mandala',
+    label: 'Mandala Visual Sync',
+    summary: 'Derive a plan-only Mandala visual adaptation from score/scene axes.',
+    module: 'mandala_visual_sync',
+    actions: [{ id: 'sync', tool: 'mandala_visual_sync', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'story_forge',
+    label: 'Story Forge Audio',
+    summary: 'Fail-closed Story Forge → Beatbox → Speakers movie audio with receipts.',
+    module: 'story_forge_audio',
+    actions: [{ id: 'run', tool: 'story_forge_audio', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
+  },
+  {
+    id: 'human_voice_speakers',
+    label: 'Voice → Speakers Handoff',
+    summary: 'Guided extract → signoff → Speakers constraints for mix-ready voice profiles.',
+    module: 'human_voice_speakers_pipeline',
+    actions: [{ id: 'run', tool: 'human_voice_speakers_pipeline', providers: ['deterministic'], modes: ['strict', 'assist', 'experimental'] }],
   },
   {
     id: 'v9_core',
@@ -2561,6 +2831,213 @@ function ToolResultCard({
             <p>{result.reason}</p>
           </div>
         ) : null}
+        {renderCapabilityMeta()}
+        <UlTraceBlock
+          ulTrace={toolResult?.ul_trace}
+          ulSubstrate={toolResult?.ul_substrate}
+        />
+      </div>
+    );
+  }
+
+  if (toolResult.type === 'holo_rt4d_spatial_vision') {
+    const result = toolResult.result || {};
+    const depthOrder = Array.isArray(result.depth_order) ? result.depth_order.join(' → ') : '';
+    const visibleIds = Array.isArray(result.visible)
+      ? result.visible.map((item) => item.id || item).join(', ')
+      : '';
+    const occludedIds = Array.isArray(result.occluded)
+      ? result.occluded.map((item) => item.id || item).join(', ')
+      : '';
+    const consolePath = result.console_path || `/holo-rt4d?space_id=${encodeURIComponent(result.space_id || 'holo_rt4d_demo')}&observer=${encodeURIComponent(result.observer || 'observer')}&tick=${encodeURIComponent(result.tick ?? 0)}`;
+
+    return (
+      <div className={`jarvis-inline-card ${toolResult.status === 'failed' ? 'action-failed' : ''}`}>
+        <div className="jarvis-inline-card-header">
+          <span>HoloRT4D Spatial Vision</span>
+          <strong>probe</strong>
+        </div>
+        <p>{result.summary || toolResult.summary || 'Spatial vision probe completed.'}</p>
+        <div className="jarvis-inline-meta">
+          <span className="inline-meta-chip">{result.space_id || 'unnamed space'}</span>
+          <span className="inline-meta-chip">{result.observer || 'observer'}</span>
+          <span className="inline-meta-chip">tick {Number.isFinite(Number(result.tick)) ? result.tick : 0}</span>
+          <span className={`inline-meta-chip ${toolResult.status === 'failed' ? 'danger' : 'success'}`}>
+            {toolResult.status || 'completed'}
+          </span>
+          <span className="inline-meta-chip success">{result.visible_count ?? 0} visible</span>
+          <span className="inline-meta-chip warning">{result.occluded_count ?? 0} occluded</span>
+          {result.space_binding ? (
+            <span className="inline-meta-chip">{result.space_binding}</span>
+          ) : null}
+        </div>
+        {visibleIds ? (
+          <div className="corrigibility-inline-block">
+            <strong>Visible</strong>
+            <p>{visibleIds}</p>
+          </div>
+        ) : null}
+        {occludedIds ? (
+          <div className="corrigibility-inline-block">
+            <strong>Occluded</strong>
+            <p>{occludedIds}</p>
+          </div>
+        ) : null}
+        {depthOrder ? (
+          <div className="corrigibility-inline-block">
+            <strong>Depth Order</strong>
+            <p>{depthOrder}</p>
+          </div>
+        ) : null}
+        <div className="jarvis-inline-actions">
+          <Link to={consolePath} className="inline-card-action">
+            <FiArrowUpRight />
+            Open HoloRT4D map
+          </Link>
+          <Link to="/adaptive-music?panel=sovereign-sound" className="inline-card-action">
+            <FiArrowUpRight />
+            Couple into Score
+          </Link>
+        </div>
+        {renderCapabilityMeta()}
+        <UlTraceBlock
+          ulTrace={toolResult?.ul_trace}
+          ulSubstrate={toolResult?.ul_substrate}
+        />
+      </div>
+    );
+  }
+
+  if (
+    toolResult.type === 'adaptive_music_compose'
+    || toolResult.type === 'beatbox_score'
+    || toolResult.type === 'speakers_mix'
+  ) {
+    const result = toolResult.result || {};
+    const consolePath = result.console_path || '/adaptive-music';
+    const mixSha = String(result.mix_sha256 || '').slice(0, 16);
+    const title = toolResult.type === 'beatbox_score'
+      ? 'Beatbox Score'
+      : toolResult.type === 'speakers_mix'
+        ? 'Speakers Mix'
+        : 'Adaptive Music Compose';
+
+    return (
+      <div className={`jarvis-inline-card ${toolResult.status === 'failed' ? 'action-failed' : ''}`}>
+        <div className="jarvis-inline-card-header">
+          <span>{title}</span>
+          <strong>{result.mood || result.engine || toolResult.type}</strong>
+        </div>
+        <p>
+          {result.summary
+            || `${result.mood || 'score'} · ${result.bpm || '—'} BPM · ${Number(result.duration_sec || 0).toFixed?.(1) || result.duration_sec || '—'}s`}
+        </p>
+        <div className="jarvis-inline-meta">
+          <span className={`inline-meta-chip ${toolResult.status === 'failed' ? 'danger' : 'success'}`}>
+            {toolResult.status || 'completed'}
+          </span>
+          {result.session_id ? <span className="inline-meta-chip">{result.session_id}</span> : null}
+          {mixSha ? <span className="inline-meta-chip">mix {mixSha}…</span> : null}
+          {result.mandala_visual_plan?.plan_id ? (
+            <span className="inline-meta-chip">{result.mandala_visual_plan.plan_id}</span>
+          ) : null}
+        </div>
+        <div className="jarvis-inline-actions">
+          <Link to={consolePath} className="inline-card-action">
+            <FiArrowUpRight />
+            Open Adaptive Score
+          </Link>
+        </div>
+        {renderCapabilityMeta()}
+        <UlTraceBlock
+          ulTrace={toolResult?.ul_trace}
+          ulSubstrate={toolResult?.ul_substrate}
+        />
+      </div>
+    );
+  }
+
+  if (toolResult.type === 'mandala_visual_sync') {
+    const result = toolResult.result || {};
+    return (
+      <div className={`jarvis-inline-card ${toolResult.status === 'failed' ? 'action-failed' : ''}`}>
+        <div className="jarvis-inline-card-header">
+          <span>Mandala Visual Sync</span>
+          <strong>{result.plan_id || 'plan'}</strong>
+        </div>
+        <p>
+          {result.mood || 'mood'} · {result.bpm || '—'} BPM · plan-only
+          {result.consumer_seam?.owns_pixels ? '' : ' (no pixels)'}
+        </p>
+        <div className="jarvis-inline-actions">
+          <Link to="/adaptive-music" className="inline-card-action">
+            <FiArrowUpRight />
+            Open Mandala preview
+          </Link>
+        </div>
+        {renderCapabilityMeta()}
+        <UlTraceBlock
+          ulTrace={toolResult?.ul_trace}
+          ulSubstrate={toolResult?.ul_substrate}
+        />
+      </div>
+    );
+  }
+
+  if (toolResult.type === 'story_forge_audio') {
+    const result = toolResult.result || {};
+    const receipt = result.receipt || {};
+    return (
+      <div className={`jarvis-inline-card ${toolResult.status === 'failed' || result.status === 'rejected' ? 'action-failed' : ''}`}>
+        <div className="jarvis-inline-card-header">
+          <span>Story Forge Audio</span>
+          <strong>{result.status || toolResult.status || 'run'}</strong>
+        </div>
+        <p>{result.message || 'Story Forge audio pipeline finished.'}</p>
+        <div className="jarvis-inline-meta">
+          {receipt.session_id || result.session_id ? (
+            <span className="inline-meta-chip">{receipt.session_id || result.session_id}</span>
+          ) : null}
+          {receipt.error_type || result.error_type ? (
+            <span className="inline-meta-chip danger">{receipt.error_type || result.error_type}</span>
+          ) : (
+            <span className="inline-meta-chip success">receipt</span>
+          )}
+        </div>
+        <div className="jarvis-inline-actions">
+          <Link to={result.console_path || '/adaptive-music?panel=story-forge'} className="inline-card-action">
+            <FiArrowUpRight />
+            Open beside Score tools
+          </Link>
+        </div>
+        {renderCapabilityMeta()}
+        <UlTraceBlock
+          ulTrace={toolResult?.ul_trace}
+          ulSubstrate={toolResult?.ul_substrate}
+        />
+      </div>
+    );
+  }
+
+  if (toolResult.type === 'human_voice_speakers_pipeline') {
+    const result = toolResult.result || {};
+    return (
+      <div className={`jarvis-inline-card ${toolResult.status === 'failed' || !result.ok ? 'action-failed' : ''}`}>
+        <div className="jarvis-inline-card-header">
+          <span>Voice → Speakers</span>
+          <strong>{result.status || 'pipeline'}</strong>
+        </div>
+        <p>
+          {result.profile_id
+            ? `Speakers-ready profile ${result.profile_id}`
+            : (result.message || 'Voice pipeline finished.')}
+        </p>
+        <div className="jarvis-inline-actions">
+          <Link to={result.console_path || '/adaptive-music?panel=voice-mix'} className="inline-card-action">
+            <FiArrowUpRight />
+            Open Voice → Mix
+          </Link>
+        </div>
         {renderCapabilityMeta()}
         <UlTraceBlock
           ulTrace={toolResult?.ul_trace}
@@ -5604,6 +6081,7 @@ function ConversationMessage({
 
 function JarvisConsole() {
   const [profile, setProfile] = useState(() => getJarvisProfile());
+  const [denseCockpit, setDenseCockpit] = useState(false);
   const [sessionId, setSessionId] = useState('');
   const [recentSessions, setRecentSessions] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -5670,6 +6148,8 @@ function JarvisConsole() {
   const [missionBusy, setMissionBusy] = useState(false);
   const [blueprint, setBlueprint] = useState(null);
   const [blueprintBusy, setBlueprintBusy] = useState(false);
+  const [providerCatalog, setProviderCatalog] = useState([]);
+  const [providersBusy, setProvidersBusy] = useState(false);
   const [protocolSession, setProtocolSession] = useState(null);
   const [protocolBusy, setProtocolBusy] = useState(false);
   const [sessionRuntime, setSessionRuntime] = useState(() => mapSessionRuntime());
@@ -6045,6 +6525,21 @@ function JarvisConsole() {
     }
   }, []);
 
+  const refreshProviders = useCallback(async () => {
+    setProvidersBusy(true);
+    try {
+      const response = await apiGet('/api/jarvis/providers');
+      const providers = Array.isArray(response.data?.providers)
+        ? response.data.providers
+        : (Array.isArray(response.data) ? response.data : []);
+      setProviderCatalog(providers);
+    } catch (error) {
+      setProviderCatalog([]);
+    } finally {
+      setProvidersBusy(false);
+    }
+  }, []);
+
   const refreshProtocol = useCallback(async (targetSessionId) => {
     const activeSessionId = targetSessionId || sessionId;
     if (!activeSessionId) {
@@ -6124,6 +6619,7 @@ function JarvisConsole() {
     refreshSystemGuard();
     refreshDreamspace();
     refreshBlueprint();
+    refreshProviders();
   }, [
     refreshActions,
     refreshBlueprint,
@@ -6133,6 +6629,7 @@ function JarvisConsole() {
     refreshEvolveDeck,
     refreshMemories,
     refreshPatchReviews,
+    refreshProviders,
     refreshSessions,
     refreshSpecialists,
     refreshSystemGuard,
@@ -6463,12 +6960,32 @@ function JarvisConsole() {
     setSelectedSpecialistPreset(null);
   }, []);
 
-  const pinPreferredProvider = useCallback((providerId) => {
-    setProfile((current) => ({
+  const pinPreferredProvider = useCallback((providerId, providers = []) => {
+    const nextId = String(providerId || 'auto');
+    const match = (providers || []).find((provider) => provider.id === nextId);
+    if (match && match.available === false) {
+      toast.error(match.activation_hint || match.reason || `${match.label || nextId} is offline`);
+      return;
+    }
+
+    setProfile((current) => {
+      const next = saveJarvisProfile({
+        ...current,
+        preferredProvider: nextId,
+        providerPreferencePinned: nextId !== 'auto',
+      });
+      return next;
+    });
+    setSessionRuntime((current) => ({
       ...current,
-      preferredProvider: providerId,
-      providerPreferencePinned: providerId !== 'auto',
+      preferredProvider: nextId,
+      providerMode: nextId === 'auto' ? 'auto_best' : 'pinned',
     }));
+    toast.success(
+      nextId === 'auto'
+        ? 'Auto Best model routing on'
+        : `Model set to ${match?.label || getProviderLabel(nextId, providers)}`,
+    );
   }, []);
 
   const openExternalUrl = useCallback((url) => {
@@ -6582,7 +7099,7 @@ function JarvisConsole() {
       const existing = String(current || '').trim();
       return existing ? `${existing}\n\n${pendingDraft.text}` : pendingDraft.text;
     });
-    toast.success('Screenshot context loaded into Jarvis.');
+    toast.success('Context loaded into Jarvis.');
   }, [booting]);
 
   const ensureSession = useCallback(async () => {
@@ -7685,18 +8202,20 @@ function JarvisConsole() {
   const activeResponseTrace = sessionRuntime.responseTrace;
   const latestSessionEvent = sessionEvents[0] || null;
   const availableProviders = useMemo(() => {
-    const providerList = Array.isArray(blueprint?.providers) && blueprint.providers.length > 0
-      ? blueprint.providers
-      : [
-        {
-          id: 'local',
-          label: 'Local Heroine',
-          available: true,
-          summary: 'Primary on-laptop AAIS model path.',
-          model: 'AAIS local runtime',
-          kind: 'local',
-        },
-      ];
+    const providerList = Array.isArray(providerCatalog) && providerCatalog.length > 0
+      ? providerCatalog
+      : (Array.isArray(blueprint?.providers) && blueprint.providers.length > 0
+        ? blueprint.providers
+        : [
+          {
+            id: 'local',
+            label: 'Local Heroine',
+            available: true,
+            summary: 'Primary on-laptop AAIS model path.',
+            model: 'AAIS local runtime',
+            kind: 'local',
+          },
+        ]);
 
     return [
       {
@@ -7720,10 +8239,16 @@ function JarvisConsole() {
         kind: provider.kind || 'local',
       })),
     ];
-  }, [blueprint]);
+  }, [blueprint, providerCatalog]);
   const selectedProvider = sessionRuntime.preferredProvider
     || (profile.providerPreferencePinned ? profile.preferredProvider : 'auto')
     || 'auto';
+  const selectableProviders = useMemo(
+    () => availableProviders.filter(
+      (provider) => provider.available !== false || provider.id === selectedProvider,
+    ),
+    [availableProviders, selectedProvider],
+  );
   const selectedProviderObject = availableProviders.find((provider) => provider.id === selectedProvider)
     || availableProviders.find((provider) => provider.id === sessionRuntime.preferredProvider)
     || availableProviders[0]
@@ -7837,7 +8362,8 @@ function JarvisConsole() {
   ];
 
   return (
-    <div className="jarvis-console">
+    <div className={`jarvis-console ${denseCockpit ? '' : 'jarvis-console--simple'}`}>
+      {denseCockpit ? (
       <section className="jarvis-hero">
         <div className="jarvis-hero-copy">
           <div className={`status-pill ${health.status === 'healthy' ? 'connected' : 'error'}`}>
@@ -7887,6 +8413,13 @@ function JarvisConsole() {
             >
               <FiRefreshCw />
               New Session
+            </button>
+            <button
+              type="button"
+              className="jarvis-secondary-button"
+              onClick={() => setDenseCockpit(false)}
+            >
+              Simple chat
             </button>
           </div>
 
@@ -7961,8 +8494,44 @@ function JarvisConsole() {
           </div>
         </div>
       </section>
+      ) : (
+      <section className="jarvis-simple-bar page-panel">
+        <div className="jarvis-simple-bar-copy">
+          <div className={`status-pill ${health.status === 'healthy' ? 'connected' : 'error'}`}>
+            <FiActivity />
+            {health.status === 'healthy' ? 'online' : 'offline'}
+          </div>
+          <div>
+            <h1>{profile.assistantName}</h1>
+            <p>
+              {listening ? 'Listening…' : sending ? 'Thinking…' : `Model: ${activeProviderLabel}. Click a model chip to switch.`}
+            </p>
+          </div>
+        </div>
+        <div className="jarvis-simple-bar-actions">
+          <button
+            type="button"
+            className="jarvis-secondary-button"
+            onClick={() => createFreshSession(profile)}
+            disabled={booting || sending}
+          >
+            <FiRefreshCw />
+            New Session
+          </button>
+          <button
+            type="button"
+            className="jarvis-secondary-button"
+            onClick={() => setDenseCockpit(true)}
+          >
+            <FiLayers />
+            Full cockpit
+          </button>
+        </div>
+      </section>
+      )}
 
       <section className="jarvis-layout">
+        {denseCockpit ? (
         <aside className="jarvis-tool-panel" id="jarvis-tool-layer">
           <div className="jarvis-side-card page-panel tool-layer-card">
             <div className="jarvis-side-title">
@@ -8085,17 +8654,32 @@ function JarvisConsole() {
             actionBusyId={actionBusyId}
           />
         </aside>
+        ) : null}
 
         <div className="jarvis-chat-shell page-panel">
           <div className="jarvis-chat-header">
             <div>
-              <h2>Nova Surface</h2>
-              <p>Cognitive interface · Session {sessionId || 'starting...'}</p>
+              <h2>Chat</h2>
+              <p>{denseCockpit ? `Cognitive interface · Session ${sessionId || 'starting...'}` : (sessionId ? `Session ${sessionId.slice(0, 8)}` : 'Starting session…')}</p>
             </div>
             <div className="jarvis-chat-health">
               <span><FiCpu /> {health.active_model_mode || 'offline'}</span>
-              <span><FiCommand /> {health.ai_status}</span>
-              <span><FiActivity /> {sessionRuntime.activeMode}</span>
+              {!denseCockpit && (
+                <button
+                  type="button"
+                  className="jarvis-secondary-button"
+                  onClick={() => setDenseCockpit(true)}
+                >
+                  <FiLayers />
+                  Tools
+                </button>
+              )}
+              {denseCockpit && (
+                <>
+                  <span><FiCommand /> {health.ai_status}</span>
+                  <span><FiActivity /> {sessionRuntime.activeMode}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -8107,6 +8691,7 @@ function JarvisConsole() {
             onChange={handleFileIntake}
           />
 
+          {denseCockpit ? (
           <div className="jarvis-context-card jarvis-intake-card">
             <div className="jarvis-context-header">
               <div>
@@ -8222,9 +8807,10 @@ function JarvisConsole() {
               )}
             </div>
           </div>
+          ) : null}
 
           <div className="jarvis-quick-actions">
-            {quickActions.map((action) => (
+            {(denseCockpit ? quickActions : quickActions.slice(0, 3)).map((action) => (
               <button
                 key={action}
                 type="button"
@@ -8353,6 +8939,41 @@ function JarvisConsole() {
             <div ref={messagesEndRef} />
           </div>
 
+          <div className="jarvis-model-switcher page-panel">
+            <div className="jarvis-model-switcher-head">
+              <div>
+                <span>Model</span>
+                <strong>{activeProviderLabel}</strong>
+              </div>
+              <button
+                type="button"
+                className="jarvis-secondary-button"
+                onClick={() => refreshProviders()}
+                disabled={providersBusy}
+                aria-label="Refresh models"
+              >
+                <FiRefreshCw />
+                {providersBusy ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            <div className="jarvis-model-switcher-row" role="group" aria-label="Switch model">
+              {(denseCockpit ? availableProviders : selectableProviders).map((provider) => {
+                const isSelected = selectedProvider === provider.id;
+                return (
+                  <button
+                    key={`switch-${provider.id}`}
+                    type="button"
+                    className={`jarvis-model-chip ${isSelected ? 'active' : ''} ${provider.available ? '' : 'offline'}`}
+                    onClick={() => pinPreferredProvider(provider.id, availableProviders)}
+                    title={provider.summary || provider.reason || provider.label}
+                  >
+                    {provider.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="jarvis-compose">
             <textarea
               value={draft}
@@ -8365,6 +8986,7 @@ function JarvisConsole() {
               }
               rows="4"
             />
+            {denseCockpit ? (
             <div className="compose-category-shell">
               <div className="compose-category-header">
                 <div>
@@ -8427,7 +9049,7 @@ function JarvisConsole() {
                         key={provider.id}
                         type="button"
                         className={`provider-chip ${isSelected ? 'active' : ''} ${provider.available ? '' : 'offline'}`}
-                        onClick={() => pinPreferredProvider(provider.id)}
+                        onClick={() => pinPreferredProvider(provider.id, availableProviders)}
                         title={provider.summary || provider.reason || provider.label}
                       >
                         <strong>{provider.label}</strong>
@@ -8561,15 +9183,25 @@ function JarvisConsole() {
                 </div>
               )}
             </div>
+            ) : null}
             <div className="jarvis-compose-actions">
               <div className="compose-meta">
-                <span>{activePersona} persona</span>
-                <span>{getResponseModeLabel(selectedResponseMode)} selected</span>
-                <span>{getProviderLabel(selectedProvider, availableProviders)} provider</span>
-                <span>{selectedSpecialistPresetObject ? `${selectedSpecialistPresetObject.label} preset` : `${selectedSpecialists.length || 0} specialists pinned`}</span>
-                <span>{conversationLane === 'documents' ? `intake ${documents.length} docs` : 'direct chat lane'}</span>
-                <span>{draft.length} chars</span>
-                <span>Ctrl/Cmd + Enter</span>
+                {denseCockpit ? (
+                  <>
+                    <span>{activePersona} persona</span>
+                    <span>{getResponseModeLabel(selectedResponseMode)} selected</span>
+                    <span>{getProviderLabel(selectedProvider, availableProviders)} provider</span>
+                    <span>{selectedSpecialistPresetObject ? `${selectedSpecialistPresetObject.label} preset` : `${selectedSpecialists.length || 0} specialists pinned`}</span>
+                    <span>{conversationLane === 'documents' ? `intake ${documents.length} docs` : 'direct chat lane'}</span>
+                    <span>{draft.length} chars</span>
+                    <span>Ctrl/Cmd + Enter</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{getResponseModeLabel(selectedResponseMode)}</span>
+                    <span>Ctrl/Cmd + Enter</span>
+                  </>
+                )}
               </div>
               <div className="compose-button-cluster">
                 <button
@@ -8605,6 +9237,7 @@ function JarvisConsole() {
           </div>
         </div>
 
+        {denseCockpit ? (
         <aside className="jarvis-side-panel">
           <div className="jarvis-side-card page-panel side-panel-category-card">
             <div className="jarvis-side-title">
@@ -9310,7 +9943,7 @@ function JarvisConsole() {
                     key={`provider-${provider.id}`}
                     type="button"
                     className={`provider-chip ${selectedProvider === provider.id ? 'active' : ''} ${provider.available ? '' : 'offline'}`}
-                    onClick={() => pinPreferredProvider(provider.id)}
+                    onClick={() => pinPreferredProvider(provider.id, availableProviders)}
                   >
                     <strong>{provider.label}</strong>
                     <span>
@@ -9416,14 +10049,20 @@ function JarvisConsole() {
               <strong>{getSystemGuardLabel(systemGuard.status)}</strong>
             </div>
             <div className="system-links">
-              <Link to="/">Nova Home</Link>
+              <Link to="/settings">Settings</Link>
               <Link to="/memory">Memory Bank</Link>
+              <Link to="/model-library">Model Library</Link>
+              <Link to="/image-generator">Image</Link>
+              <Link to="/audio-processor">Audio</Link>
+              <Link to="/adaptive-music">Adaptive Score</Link>
+              <Link to="/holo-rt4d">HoloRT4D</Link>
               <Link to="/prompt-lab">Prompt Lab</Link>
               <Link to="/history">Memory Log</Link>
             </div>
           </div>
           )}
         </aside>
+        ) : null}
       </section>
     </div>
   );

@@ -1,0 +1,202 @@
+.task-bus-page {
+  max-width: 960px;
+  margin: 1.5rem auto 3rem;
+  padding: 0 1.25rem;
+  color: var(--ink, #14212b);
+}
+
+.task-bus-hero {
+  margin-bottom: 1.75rem;
+}
+
+.task-bus-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 0 0 0.35rem;
+}
+
+.task-bus-hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+}
+
+.task-bus-lede {
+  max-width: 42rem;
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.task-bus-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+}
+
+.task-bus-links a {
+  color: var(--accent, #1f4d4a);
+  font-weight: 600;
+}
+
+.task-bus-compose,
+.task-bus-catalog,
+.task-bus-result {
+  margin-bottom: 1.75rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid rgba(20, 33, 43, 0.12);
+}
+
+.task-bus-compose label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.task-bus-compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(20, 33, 43, 0.2);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  min-height: 6rem;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.task-bus-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.task-bus-chip {
+  border: 1px solid rgba(20, 33, 43, 0.18);
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.task-bus-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.task-bus-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+}
+
+.task-bus-controls button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  background: linear-gradient(135deg, var(--accent, #2a6b66) 0%, #1f4d4a 100%);
+  color: #f8fafc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.task-bus-controls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.task-bus-note,
+.task-bus-hint,
+.task-bus-meta {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  line-height: 1.45;
+}
+
+.task-bus-lane-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.task-bus-lane {
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(20, 33, 43, 0.08);
+}
+
+.task-bus-lane h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.task-bus-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(20, 33, 43, 0.08);
+}
+
+.task-bus-badge--ready {
+  background: rgba(42, 107, 102, 0.18);
+}
+
+.task-bus-badge--needs_auth,
+.task-bus-badge--denied {
+  background: rgba(140, 60, 40, 0.15);
+}
+
+.task-bus-badge--demo {
+  background: rgba(20, 33, 43, 0.1);
+}
+
+.task-bus-trace {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+
+.task-bus-trace div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.5rem;
+}
+
+.task-bus-trace dt {
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.task-bus-trace dd {
+  margin: 0;
+}
+
+.task-bus-plan,
+.task-bus-exec {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+}
+
+.task-bus-raw pre {
+  overflow: auto;
+  max-height: 280px;
+  font-size: 0.8rem;
+  background: rgba(20, 33, 43, 0.05);
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+  .task-bus-trace div {
+    grid-template-columns: 1fr;
+  }
+}

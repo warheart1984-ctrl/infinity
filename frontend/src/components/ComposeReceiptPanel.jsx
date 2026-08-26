@@ -8,7 +8,7 @@ function runtimeChip(runtimeId) {
 
 export default function ComposeReceiptPanel({
   receipt,
-  superNovaSummary = null,
+  superNovaDeepSummary = null,
   title = 'Turn process',
   compact = false,
 }) {
@@ -76,26 +76,26 @@ export default function ComposeReceiptPanel({
         <p className="compose-receipt__empty">Cortex lobes idle — Spine + ARIS + Jarvis authority only.</p>
       )}
 
-      {superNovaSummary ? (
+      {superNovaDeepSummary ? (
         <div className="compose-receipt__super" data-testid="super-nova-compose-summary">
-          <p className="compose-receipt__super-title">Super Nova gate</p>
+          <p className="compose-receipt__super-title">Governed Deep gate</p>
           <div className="compose-receipt__grid">
             <div className="compose-receipt__fact">
               <span>Activation</span>
-              <strong>{superNovaSummary.activationState}</strong>
+              <strong>{superNovaDeepSummary.activationState}</strong>
             </div>
             <div className="compose-receipt__fact">
               <span>Phase gate</span>
-              <strong>{superNovaSummary.phaseDecision}</strong>
+              <strong>{superNovaDeepSummary.phaseDecision}</strong>
             </div>
             <div className="compose-receipt__fact">
               <span>Token</span>
-              <strong>{superNovaSummary.tokenPresent ? 'live' : 'missing'}</strong>
+              <strong>{superNovaDeepSummary.tokenPresent ? 'live' : 'missing'}</strong>
             </div>
-            {superNovaSummary.lastAdmission ? (
+            {superNovaDeepSummary.lastAdmission ? (
               <div className="compose-receipt__fact">
                 <span>Admission</span>
-                <strong>{superNovaSummary.lastAdmission}</strong>
+                <strong>{superNovaDeepSummary.lastAdmission}</strong>
               </div>
             ) : null}
           </div>

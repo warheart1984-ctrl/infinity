@@ -1,0 +1,21 @@
+.runtime-panel {
+  position: absolute; top: 54px; right: 18px; z-index: 60;
+  width: 420px; max-width: calc(100vw - 36px);
+  background: #12101f; border: 1px solid #2c2547; border-radius: 12px;
+  padding: 14px 16px; color: #dcdce6; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.runtime-panel__head { display:flex; justify-content:space-between; align-items:center; }
+.runtime-panel__close { background:none; border:none; color:#8f8fa3; font-size:20px; cursor:pointer; line-height:1; }
+.runtime-panel__label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#7a6cff; margin-top:4px; }
+.runtime-panel__row { display:flex; gap:8px; flex-wrap:wrap; }
+.runtime-panel__row select, .runtime-panel__row input, .runtime-panel__save {
+  background:#1b1830; border:1px solid #2c2547; color:#eee; border-radius:8px;
+  padding:8px 10px; font-size:13px; outline:none;
+}
+.runtime-panel__row select:focus, .runtime-panel__row input:focus { border-color:#7c5cff; }
+.runtime-panel__row input[type="password"] { flex:1; min-width:150px; }
+.runtime-panel__row input[type="text"] { flex:1; min-width:150px; }
+.runtime-panel__save { align-self:flex-start; cursor:pointer; }
+.runtime-panel__hint { font-size:11px; color:#5f5f78; }
+.runtime-panel__notice { font-size:12px; color:#9d8cff; }

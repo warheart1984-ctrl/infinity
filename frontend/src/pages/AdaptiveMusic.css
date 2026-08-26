@@ -1,0 +1,154 @@
+.adaptive-music {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+
+.adaptive-music h1 {
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 2.5rem;
+}
+
+.adaptive-stem {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+}
+
+.adaptive-stem strong {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.adaptive-music .control-group {
+  margin: 0.75rem 0;
+}
+
+.adaptive-music .control-group input[type="range"] {
+  width: 100%;
+}
+
+.adaptive-music textarea {
+  width: 100%;
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(20, 33, 43, 0.16);
+}
+
+.mandala-sync-plan {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(20, 33, 43, 0.12);
+}
+
+.mandala-sync-plan h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.mandala-hooks {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0;
+}
+
+.mandala-hooks dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin: 0;
+}
+
+.mandala-hooks dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+}
+
+.mandala-visual-preview {
+  margin: 1rem 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(12, 18, 28, 0.92);
+}
+
+.mandala-visual-preview svg {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+}
+
+.mandala-visual-preview__ring,
+.mandala-visual-preview__core,
+.mandala-visual-preview__spark {
+  transform-origin: center;
+  animation: mandala-pulse var(--mandala-pulse, 1.2s) ease-in-out infinite;
+}
+
+.mandala-visual-preview__spark {
+  animation-duration: calc(var(--mandala-pulse, 1.2s) * 0.7);
+}
+
+@keyframes mandala-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.adaptive-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.adaptive-panel-tabs a {
+  text-decoration: none;
+  color: inherit;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 2px solid transparent;
+  opacity: 0.7;
+}
+
+.adaptive-panel-tabs a.is-active {
+  opacity: 1;
+  border-bottom-color: currentColor;
+  font-weight: 600;
+}
+
+.adaptive-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.92rem;
+}
+
+.adaptive-receipt {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(20, 33, 43, 0.06);
+  font-size: 0.78rem;
+  overflow: auto;
+  max-height: 280px;
+}
+
+.spatial-couple-receipt {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(20, 33, 43, 0.12);
+}
+
+.adaptive-story-forge-note {
+  max-width: 720px;
+  margin: 0 auto 1.5rem;
+}

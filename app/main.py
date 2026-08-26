@@ -221,9 +221,71 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+class LegacyPrefixRewriteMiddleware:
+    """Accept /legacy_api/<path> and forward as /<path> (unified URL surface)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").startswith("/legacy_api/"):
+            new_scope = dict(scope)
+            new_scope["path"] = scope["path"][len("/legacy_api"):] or "/"
+            await self.app(new_scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+import time as _time
+
+_STATUS_CACHE: dict[str, tuple[float, dict]] = {}
+_STATUS_TTL = 45.0
+
+
+class StatusCacheMiddleware:
+    """Cache GET */status JSON responses for 45s."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("method") == "GET":
+            path = scope.get("path", "")
+            if path.endswith("/status"):
+                now = _time.time()
+                hit = _STATUS_CACHE.get(path)
+                if hit and now - hit[0] < _STATUS_TTL:
+                    body = json.dumps(hit[1]).encode()
+                    await send({"type": "http.response.start", "status": 200,
+                                "headers": [(b"content-type", b"application/json"),
+                                            (b"x-status-cache", b"HIT")]})
+                    await send({"type": "http.response.body", "body": body})
+                    return
+                captured: dict = {}
+
+                async def send_wrapper(message):
+                    if message["type"] == "http.response.start":
+                        headers = dict(message.get("headers", []))
+                        captured["ok"] = message["status"] == 200 and headers.get(b"content-type") == b"application/json"
+                    elif message["type"] == "http.response.body":
+                        captured["body"] = captured.get("body", b"") + message.get("body", b"")
+                    await send(message)
+
+                await self.app(scope, receive, send_wrapper)
+                if captured.get("ok"):
+                    try:
+                        _STATUS_CACHE[path] = (now, json.loads(captured["body"]))
+                    except Exception:
+                        pass
+                return
+        await self.app(scope, receive, send)
+
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.add_middleware(LegacyPrefixRewriteMiddleware)
+app.add_middleware(StatusCacheMiddleware)
 app.include_router(transcription_router)
-app.mount(LEGACY_API_MOUNT_PATH, WSGIMiddleware(legacy_api_bridge))
+# legacy bridge is mounted at root at end of module
 
 
 def _static_file_path(relative_path: str) -> Path | None:
@@ -1497,3 +1559,8 @@ def packaged_frontend(full_path: str = ""):
             return FileResponse(asset_path)
 
     return _serve_frontend_index()
+
+# Root-level legacy mount LAST: canonical routes above win first; everything
+# else falls through to the Flask operator runtime. LegacyPrefixRewrite
+# middleware keeps /legacy_api/* URLs working for older clients.
+app.mount("", WSGIMiddleware(legacy_api_bridge), name="jarvis_legacy_root")

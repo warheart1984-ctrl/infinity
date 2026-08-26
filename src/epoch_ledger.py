@@ -255,6 +255,21 @@ class EpochLedger:
         self._load()
         return self._continuity_broken
 
+    @property
+    def current_epoch_is_recovery(self) -> bool:
+        """True when the open epoch was opened behind a RECOVERY receipt.
+
+        Post-discontinuity commits are only admissible inside such an epoch
+        (INV-SOV-001 R5->R3 rule).
+        """
+        self._load()
+        if not self._entries:
+            return False
+        lifecycle = [
+            e for e in self._entries if e.receipt_type in LIFECYCLE_TYPES
+        ]
+        return bool(lifecycle) and lifecycle[-1].receipt_type == "RECOVERY"
+
     def entries(self) -> List[LedgerReceipt]:
         self._load()
         return list(self._entries)

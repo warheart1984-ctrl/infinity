@@ -34,6 +34,7 @@ const WorkflowRunDetail = lazy(() => import('./pages/WorkflowRunDetail'));
 const WorkflowApprovals = lazy(() => import('./pages/WorkflowApprovals'));
 const WorkflowTemplates = lazy(() => import('./pages/WorkflowTemplates'));
 const OperatorConsole = lazy(() => import('./pages/OperatorConsole'));
+const InfinityKernelPage = lazy(() => import('./pages/InfinityKernel'));
 const OperatorPlugins = lazy(() => import('./pages/OperatorPlugins'));
 const OperatorBrainSessions = lazy(() => import('./pages/OperatorBrainSessions'));
 const OperatorLedger = lazy(() => import('./pages/OperatorLedger'));
@@ -74,6 +75,7 @@ function AppShell() {
             <Route path="/nova" element={<NovaPage />} />
             <Route path="/nova-the-north-star" element={<NovaPage />} />
             <Route path="/jarvis" element={<JarvisPage />} />
+            <Route path="/kernel" element={<InfinityKernelPage />} />
             <Route path="/jarvis/repo-manager" element={<RepoManager />} />
             <Route path="/repo-manager" element={<Navigate to="/jarvis/repo-manager" replace />} />
             <Route path="/workbench" element={<Navigate to="/jarvis" replace />} />

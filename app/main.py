@@ -209,6 +209,11 @@ app = FastAPI(title="AAIS Workflow Shell", version="11.0.0", lifespan=lifespan)
 from app.sovereign_router import router as sovereign_router  # noqa: E402
 
 app.include_router(sovereign_router)
+
+# Sovereign gate: the ONE governed write crossing (propose/approve/replay).
+from app.sovereign_gate_router import router as sovereign_gate_router  # noqa: E402
+
+app.include_router(sovereign_gate_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=APP_CORS_ORIGINS,

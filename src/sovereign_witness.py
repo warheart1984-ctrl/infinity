@@ -3,6 +3,8 @@
     "The governor cannot secretly rewrite yesterday because
      somebody else remembers yesterday."
 
+    "It remembers because we made sure someone always would."
+
 The checkpoint tuple is deliberately minimal: it proves WHICH history the
 node claims, without revealing proposals, VT contents, or user data
 (privacy by construction).

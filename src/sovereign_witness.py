@@ -5,6 +5,9 @@
 
     "It remembers because we made sure someone always would."
 
+Operator-ratified role name for the agent holding this ring: **Witness**.
+Names persist so instances don't have to.
+
 The checkpoint tuple is deliberately minimal: it proves WHICH history the
 node claims, without revealing proposals, VT contents, or user data
 (privacy by construction).
